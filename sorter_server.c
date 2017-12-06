@@ -91,6 +91,11 @@ int main(int argc, char **(argv)){
         if(strcmp(request, "SORT") == 0){
             printf("Sorting...\n");
             // Spawn new thread to sort the file
+            pthread_t tid;
+            // TODO: call some function to sort and do whatever. And send whatever args
+            pthread_create(&tid, NULL, process_csv, (void*)args);
+            pthread_join(tid_dir, NULL);
+            
         } else if(strcmp(request, "DUMP") == 0){
             printf("Sorting then dumping...\n");
             // Spawn new thread to sort the datastructure and dump it to client
@@ -101,3 +106,9 @@ int main(int argc, char **(argv)){
 
     return 0;
 }
+
+void * handle_sort_request(void *args){
+
+
+}
+
