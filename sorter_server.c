@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <errno.h>
 #define PORT 8080
 
 
@@ -73,11 +74,26 @@ int main(int argc, char **(argv)){
         printf("Connection received from %d\n", clientSocket);
 
         // Get data from the client
-        
+        char buffer[50000];
+        int len;
+        if((len = recv(clientSocket,buffer,sizeof(buffer) - 1)) < 0){
+            printf("%s\n", strerror(errno));
+            printf("Error: Could not read from socket\n");
+        }
+        buffer[len] = '\0';
 
-        // Check to see if the REQUEST is SORT
-        if(){
+        // Get the request string
+        char request[5];
+        strncpy(request, buffer, 4);
+        request[5] = '\0';
 
+        // Check to see the request type
+        if(strcmp(request, "SORT") == 0){
+            printf("Sorting...\n");
+            // Spawn new thread to sort the file
+        } else if(strcmp(request, "DUMP") == 0){
+            printf("Sorting then dumping...\n");
+            // Spawn new thread to sort the datastructure and dump it to client
         }
 
     }
