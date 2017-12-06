@@ -74,7 +74,7 @@ int main(int argc, char **(argv)){
         printf("Connection received from %d\n", clientSocket);
 
         // Get data from the client
-        char buffer[50000];
+        char buffer[65535];
         int len;
         if((len = recv(clientSocket,buffer,sizeof(buffer) - 1)) < 0){
             printf("%s\n", strerror(errno));
@@ -85,7 +85,7 @@ int main(int argc, char **(argv)){
         // Get the request string
         char request[5];
         strncpy(request, buffer, 4);
-        request[5] = '\0';
+        request[4] = '\0';
 
         // Check to see the request type
         if(strcmp(request, "SORT") == 0){
