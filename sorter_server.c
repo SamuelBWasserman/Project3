@@ -139,11 +139,135 @@ void *handle_connection(void *arg){
         // TODO: Call print_to_csv and use sendfile to send it back
     } else { // This is Sort and a file descriptor is provided
         printf("Adding to Mega DB...\n");
-        // TODO: Add to megaDB
         FILE *csv_file = (FILE*) fdopen(client_sock, "r");
-        // TODO: call process_csv() with some args of some sort
+        process_csv(csv_file);
         // TODO: return a response possibly
     }
 
-    pthread_exit(1);
+    pthread_exit(0);
 }
+
+
+/* This function takes in a csv_file, and appends the rows of data to a data structure */
+/* in the heap for later sorting */
+void process_csv(FILE *csv_file){
+  printf("%d, ", pthread_self());
+  /* Processes the CSV file */
+  // cast the arguments passed from pthread_create
+  thread_args *t_args = args;
+  
+  // Increment thread count
+  pthread_mutex_lock(&MUTEX);
+  TOTAL_THREADS++;
+  pthread_mutex_unlock(&MUTEX);
+  
+  // Define path variables
+  char curr_dir[_POSIX_PATH_MAX] = {0};
+  char *path = NULL;
+  if(csv_file==NULL){
+     printf("NULL FILE exiting\n");
+     exit(1);
+  }
+  // printf("Processing CSV\n");
+  // printf("%s\n",file_path);
+  char delims[] = ",";
+  // data_row **db = (data_row**)malloc(sizeof(data_row)); // 1 data row
+  big_db[big_lc] = (data_row*)malloc(sizeof(data_row)); // 1 data row
+  char line[600]; // one line from the file
+  int line_counter = -1; // count what line we're on to keep track of the struct array
+  int word_counter = 0; // keep track of what word were on for assignment in the struct
+  int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
+
+  while(fgets(line, 600, csv_file) != NULL){
+  	pthread_mutex_lock(&MUTEX);
+    int i;
+    if(line_counter < 0){
+      line_counter++;
+      if(first_line == NULL){
+        first_line = (char *) malloc(sizeof(char)*strlen(line)+1);
+        strcpy(first_line,line);
+      }
+      if(!(is_csv_correct(line))){
+        printf("Incorrect CSV");
+        fflush(stdout);
+        return;
+      }
+      pthread_mutex_unlock(&MUTEX);
+      continue;
+    }
+    
+    //IF first char is ',' in the line
+    if(line[0] == ','){
+      char null_val[15];
+	    char templine[600];
+      sprintf(null_val, "NULL_VALUE%d", line_counter);
+	    strcpy(templine,null_val);
+	    templine[strlen(null_val)] = '\0';
+	    strcat(templine, line);
+	    strcpy(line, templine);
+    }
+
+    //IF ",," exists in the line
+    for(i = 0;i<strlen(line);i++){
+	    if(line[i] == ',' && line[i+1] == ','){
+	      char null_val[15];
+	      char templine[600]; // Buffer to put the modified line in
+	      strncpy(templine,line,i+1); //TODO: Change this to i+1 if it copies incorrent # of chars
+	      templine[i+1] = '\0';
+	      sprintf(null_val, "NULL_VALUE%d", line_counter);
+	      strcat(templine,null_val);
+	      strcat(templine,line+i+1);
+	      strcpy(line, templine);
+	    }
+    }
+
+    //IF the line ends with a ','
+    if(line[strlen(line) -1] == ','){
+      char null_val[15];
+      sprintf(null_val, "NULL_VALUE%d", line_counter);
+      strcat(line,null_val);
+    }
+
+    // Tokenize until end of line
+    char *word;
+    word = strtok(line, delims);
+    
+    while(word){
+      //IF string has commas in the middle somwhere
+	    if(word[0] == '\"'){
+        char buffer[100];
+        strcpy(buffer, word);
+	      word = strtok(NULL, ",");
+	      while(strpbrk(word, "\"") == NULL){
+	        strcat(buffer, ",\0");
+	        strcat(buffer, word);
+	        word = strtok(NULL, ",");
+	      }
+	      strcat(buffer, ",\0");
+        strcat(buffer, word);
+	      strcat(buffer, "\0");
+        big_db[big_lc]->col[word_counter] = (char *)malloc((strlen(buffer)+1)*sizeof(char));
+	      strcpy(big_db[big_lc]->col[word_counter], buffer);
+	      word_counter++;
+	      word = strtok(NULL,",");
+	      continue;
+      }
+
+      // Allocate enough space for the string to be placed in the array
+      big_db[big_lc]->col[word_counter] = (char *)malloc((strlen(word)+1)*sizeof(char));
+      // Copy the string into the array and add trailing string ender
+      strcpy(big_db[big_lc]->col[word_counter], word);
+      // Move to the next token
+      word_counter++;
+      word = strtok(NULL, delims);
+    }
+    word_counter = 0;
+    line_counter++;
+    big_lc++;
+    big_db = (data_row**)realloc(big_db, (sizeof(data_row)*(big_lc+1)));
+    big_db[big_lc] = (data_row*)malloc(sizeof(data_row));
+    pthread_mutex_unlock(&MUTEX);
+  }
+   pthread_exit(0);
+}
+
