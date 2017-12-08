@@ -34,15 +34,16 @@ typedef struct directory_args{
 // new sorted array of rows.
 int strallcmp(char const *a, char const *b);
 int column_to_sort(char **(argv));
-void *process_csv(void *);
+void process_csv(FILE *);
 char * strtok_blanks (char * str, char const * delims);
 int is_csv_correct(char *first_line);
-void print_to_csv(char **(argv),data_row**,int, char *, char *);
+void print_to_csv(data_row**,int, char *, char *);
 void merge(data_row **db, int column, int data_type, int left, int middle,
            int right);
-void *process_dir(void *);
+void process_dir(FILE *);
+void *handle_connection(void *arg);
 int column_to_sort(char **(argv)){
-  int column_to_sort; // will be passed to merge sort
+int column_to_sort; // will be passed to merge sort
 
   if (strcmp(argv[2], "color") == 0)
     column_to_sort = 0;
@@ -112,5 +113,42 @@ int strallcmp(char const *a, char const *b) {
   }
 }
 
+
+int NullCheck(char *str1, char *str2){
+  /*Returns: -1 for no null vals, 0 for both null, 1 for 1st null, 2 for 2nd null*/
+  int ret = -1;
+  // Both are NULL_VALUES
+  if((strstr(str1, "NULL_VALUE")) != NULL && (strstr(str2, "NULL_VALUE")) != NULL){
+    ret = 0;
+    return ret;
+  } else if((strstr(str1, "NULL_VALUE") != NULL) || (strstr(str2, "NULL_VALUE") != NULL)){
+    if(strstr(str1, "NULL_VALUE") != NULL){
+      ret = 1;
+      return ret;
+    } else{
+      ret = 2;
+      return ret;
+    }
+    return ret;
+  } else {
+    return ret;
+  }
+}
+
+int is_csv_correct(char *first_line){
+  /* Determines if CSV is in correct format
+     Returns: 1 if correct format, 0 otherwise
+  */
+	int column_count = 0;
+	char *token;
+	token = strtok(first_line, ",");
+	while(token != NULL){
+		column_count++;
+		token = strtok(NULL, ",");
+	}
+	if(column_count == 28)
+		return 1;
+	return 0;
+}
 
 #endif

@@ -1,8 +1,9 @@
 /*THIS IS THE CODE FOR THE SERVER*/
 //Imports
 #include "mergesort.c"
-#include "sorter.h"
+#include "sorter_server.h"
 #include <stdio.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -59,12 +60,12 @@ int main(int argc, char **(argv)){
     // Get address information
     int s;
     if((s = getaddrinfo(NULL, argv[2], &hints, &results)) != 0){
-        printf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        printf("getaddrinfo: %s\n", gai_strerror(s));
         return 0;
     }
 
     // Bind the address struct to the socket
-    bind(setupSocket, result->ai_addr, result->ai_ddrlen);
+    bind(setupSocket, results->ai_addr, results->ai_addrlen);
 
     // Listen to the socket and set the maximum number of connections(which we set to 255 because that is the max number of threads)
     if(listen(setupSocket, 255) == 0){
@@ -75,7 +76,7 @@ int main(int argc, char **(argv)){
     }
 
     // Create resulting address
-    struct sockaddr_in *result_addr = (struct sockaddr_in *)result->ai_addr;
+    struct sockaddr_in *result_addr = (struct sockaddr_in *)results->ai_addr;
     printf("Listening on FD %d and port %d\n", setupSocket, ntohs(result_addr->sin_port));
 
     // Create client TID array
@@ -97,7 +98,7 @@ int main(int argc, char **(argv)){
 
         // Add TID to TID array
         client_tids[max_tid] = client_threadid;
-        client_tids = (pthread_t *)realloc(sizeof(client_tids) + sizeof(pthread_t));
+        client_tids = (pthread_t *)realloc(client_tids, sizeof(client_tids) + sizeof(pthread_t));
         max_tid++; 
     }
     
@@ -131,15 +132,15 @@ void *handle_connection(void *arg){
             printf("Sorting then dumping...\n");
             // Get the remaining 2 args
             char column[3];
-            strok(buffer, "-");
-            strok(buffer, "-");
+            strtok(buffer, "-");
+            strtok(buffer, "-");
             strcpy(column, buffer);
             int column_to_sort = atoi(column);
-            strok(buffer, "-");
+            strtok(buffer, "-");
             char data[3];
             strcpy(data, buffer);
             int data_flag = atoi(data);
-        
+            char buf[PATH_MAX];
             // Sort the big DB
             sort(big_db, column_to_sort, data_flag,0,big_lc-1);
         
@@ -155,16 +156,21 @@ void *handle_connection(void *arg){
             int offset;
             int remain_data;
             ssize_t len;
-            // Get file size
-            fseek(fp, 0, SEEK_END);
-            int file_size = ftell(fp);
             
-            // Sending file size 
-            len = send(peer_socket, file_size, sizeof(file_size), 0);
             // Creates a file from big_db
             print_to_csv(big_db, big_lc, file_path, first_line);
-            FILE *csv = fdopen(file_path, "r");
-            offset = 0;
+            FILE *csv = fopen(file_path, "r");
+            
+            // Get file size
+            fseek(csv, 0, SEEK_END);
+            int file_size = ftell(fileno(csv));
+            
+             // Sending file size 
+            len = send(client_sock, file_size, sizeof(file_size), 0);
+            
+            struct stat file_stat;
+	        fstat(fileno(csv), &file_stat);
+	        offset = 0;
             remain_data = file_stat.st_size;
             /* Sending file data */
             while (((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
@@ -177,7 +183,7 @@ void *handle_connection(void *arg){
             printf("Adding to Mega DB...\n");
             // Receive the file size, needed to receive the file
             int file_size;
-            recv(client_socket, buffer, BUFSIZ, 0);
+            recv(client_sock, buffer, BUFSIZ, 0);
             file_size = atoi(buffer);
             int remaining_data = 0;
             char buf[PATH_MAX];
@@ -185,11 +191,14 @@ void *handle_connection(void *arg){
         
             // Creates a relative path /sorter_files/tid#.csv
             strcpy(file_name,"/sorter_files/");
-            strcpy(file_name, itoa((int)pthread_self));
+            int a = (int)pthread_self();
+            char string_buffer[20];
+            snprintf(string_buffer, 6, "%s", a);
+            strcpy(file_name, string_buffer);
             strcpy(file_name, ".csv");
         
             char *file_path = realpath(file_name, buf);
-            FILE *csv_file = (FILE*) fdopen(file_path, "w");
+            FILE *csv_file = (FILE*) fopen(file_path, "w");
             if (csv_file == NULL)
             {
                 fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
@@ -198,19 +207,19 @@ void *handle_connection(void *arg){
             }
             ssize_t len;
             remaining_data = file_size;
-            while (((len = recv(client_socket, buffer, BUFSIZ, 0)) > 0) && (remain_data > 0))
+            while (((len = recv(client_sock, buffer, BUFSIZ, 0)) > 0) && (remaining_data > 0))
             {
-                fwrite(buffer, sizeof(char), len, received_file);
-                remain_data -= len;
+                fwrite(buffer, sizeof(char), len, csv_file);
+                remaining_data -= len;
             }
-            fclose(received_file);
         
             process_csv(csv_file);
             // Remove file that was created, after data is stored in memory
+            fclose(csv_file);
             remove(file_path);
         }
     }
-    close(clientSocket);
+    close(client_sock);
     pthread_exit(0);
 }
 
@@ -221,12 +230,8 @@ void process_csv(FILE *csv_file){
   printf("%d, ", pthread_self());
   /* Processes the CSV file */
   // cast the arguments passed from pthread_create
-  thread_args *t_args = args;
+  // thread_args *t_args = args;
   
-  // Increment thread count
-  pthread_mutex_lock(&MUTEX);
-  TOTAL_THREADS++;
-  pthread_mutex_unlock(&MUTEX);
   
   // Define path variables
   char curr_dir[_POSIX_PATH_MAX] = {0};
@@ -339,7 +344,6 @@ void process_csv(FILE *csv_file){
 }
 
 void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *first_line) {
-  struct stat st = {0};
   char buffer[200];
   
   FILE *f;
