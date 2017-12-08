@@ -16,7 +16,8 @@
 // Create global variables to store CSV data
 data_row **big_db;
 int big_lc = 0;
-
+// Stores the first line of the CSV. (Represents the column headers)
+char *first_line;
 // Create the locks for the threads
 pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
@@ -96,7 +97,12 @@ int main(int argc, char **(argv)){
         client_tids = (pthread_t *)realloc(sizeof(client_tids) + sizeof(pthread_t));
         max_tid++;
     }
-
+    
+    //Loop that will wait for all child threads to complete
+    int i;
+    for(i=0;i<max_tid;i++){
+        pthread_join((pthread_t)client_tids[i], NULL);
+    }
     return 0;
 }
 
@@ -135,8 +141,12 @@ void *handle_connection(void *arg){
         
         // Sort the big DB
         sort(big_db, column_to_sort, data_flag,0,big_lc-1);
+        
+        // Output to file TODO: send a path to this call
+        print_to_csv(big_db, big_lc, "DUMMY", first_line);
 
-        // TODO: Call print_to_csv and use sendfile to send it back
+        //TODO use sendfile to send the above back to the client
+        
     } else { // This is Sort and a file descriptor is provided
         printf("Adding to Mega DB...\n");
         FILE *csv_file = (FILE*) fdopen(client_sock, "r");
@@ -269,5 +279,40 @@ void process_csv(FILE *csv_file){
     pthread_mutex_unlock(&MUTEX);
   }
    pthread_exit(0);
+}
+
+void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *first_line) {
+  struct stat st = {0};
+  char buffer[200];
+  
+  FILE *f;
+  f = fopen(file_path_name, "w");
+  int i, j;
+  for (i = -1; i < line_counter; i++) {
+    //Print first line to csv
+    if(i == -1){
+    	fprintf(f, first_line);
+    	continue;
+    }
+    for (j = 0; j < 28; j++) {
+    
+      if(strstr(db[i]->col[j],"NULL") != NULL){
+	    fprintf(f,",");
+	    if(j == 27){
+	        fprintf(f,"\n");
+	    }
+	    continue;
+      }
+      
+      if(j != 27){
+      	char tmp[200];
+        strcpy(tmp,db[i]->col[j]);
+        strcat(tmp,",\0");
+     	fprintf(f,tmp);
+     	continue;
+	  }
+      fprintf(f,db[i]->col[j]);
+    }
+   }
 }
 
