@@ -86,7 +86,10 @@ int main(int argc, char **(argv)){
     printf("Waiting for connections...\n");
     while((clientSocket = accept(setupSocket, NULL, NULL)) != -1){ // TODO: Needs to handle signal kill
         // Print the IP address of the client
-        printf("Connection received from %d\n", clientSocket);
+        struct sockaddr_in addr;
+        socklen_t addr_size = sizeof(struct sockaddr_in);
+        int res = getpeername(clientSocket, (struct sockaddr *)&addr, &addr_size);
+        printf("Connection received from %d\n", inet_ntoa(addr.sin_addr));
 
         // Spawn a new thread
         pthread_t client_threadid;
@@ -95,14 +98,15 @@ int main(int argc, char **(argv)){
         // Add TID to TID array
         client_tids[max_tid] = client_threadid;
         client_tids = (pthread_t *)realloc(sizeof(client_tids) + sizeof(pthread_t));
-        max_tid++;
+        max_tid++; 
     }
     
-    //Loop that will wait for all child threads to complete
+    // Wait for all child threads to complete
     int i;
     for(i=0;i<max_tid;i++){
         pthread_join((pthread_t)client_tids[i], NULL);
     }
+    
     return 0;
 }
 
@@ -113,47 +117,100 @@ void *handle_connection(void *arg){
     // Get data from the client
     char buffer[65535];
     int len;
-    if((len = read(client_sock, buffer, sizeof(buffer) - 1)) < 0){ // Rewrite to use sendfile instead!
-        printf("%s\n", strerror(errno));
-        printf("Error: Could not read from socket\n");
+    // TODO Optimization: Let's spawn a thread to handle this while loop.
+    while((len = read(client_sock, buffer, sizeof(buffer) - 1)) >= 0){
+        buffer[len] = '\0';
+
+        // Get the request string
+        char request[5];
+        strncpy(request, buffer, 4);
+        request[4] = '\0';
+
+        // Check to see the request type
+        if(strcmp(request, "DUMP") == 0){
+            printf("Sorting then dumping...\n");
+            // Get the remaining 2 args
+            char column[3];
+            strok(buffer, "-");
+            strok(buffer, "-");
+            strcpy(column, buffer);
+            int column_to_sort = atoi(column);
+            strok(buffer, "-");
+            char data[3];
+            strcpy(data, buffer);
+            int data_flag = atoi(data);
+        
+            // Sort the big DB
+            sort(big_db, column_to_sort, data_flag,0,big_lc-1);
+        
+            char file_name[200];
+            // Creates a relative path /sorter_files/All-Files-Sorted-COLUMN.csv
+            strcpy(file_name,"/sorter_files/All-Files-Sorted");
+            strcpy(file_name,"-");
+            strcpy(file_name, column);
+            strcpy(file_name, ".csv");
+            char *file_path = realpath(file_name, buf);
+            
+            int sent_bytes = 0;
+            int offset;
+            int remain_data;
+            ssize_t len;
+            // Get file size
+            fseek(fp, 0, SEEK_END);
+            int file_size = ftell(fp);
+            
+            // Sending file size 
+            len = send(peer_socket, file_size, sizeof(file_size), 0);
+            // Creates a file from big_db
+            print_to_csv(big_db, big_lc, file_path, first_line);
+            FILE *csv = fdopen(file_path, "r");
+            offset = 0;
+            remain_data = file_stat.st_size;
+            /* Sending file data */
+            while (((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
+            {
+                remain_data -= sent_bytes;
+            }
+
+        
+        } else { // This is Sort and a file descriptor is provided
+            printf("Adding to Mega DB...\n");
+            // Receive the file size, needed to receive the file
+            int file_size;
+            recv(client_socket, buffer, BUFSIZ, 0);
+            file_size = atoi(buffer);
+            int remaining_data = 0;
+            char buf[PATH_MAX];
+            char file_name[200]; // Arbitrary length
+        
+            // Creates a relative path /sorter_files/tid#.csv
+            strcpy(file_name,"/sorter_files/");
+            strcpy(file_name, itoa((int)pthread_self));
+            strcpy(file_name, ".csv");
+        
+            char *file_path = realpath(file_name, buf);
+            FILE *csv_file = (FILE*) fdopen(file_path, "w");
+            if (csv_file == NULL)
+            {
+                fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
+
+                exit(EXIT_FAILURE);
+            }
+            ssize_t len;
+            remaining_data = file_size;
+            while (((len = recv(client_socket, buffer, BUFSIZ, 0)) > 0) && (remain_data > 0))
+            {
+                fwrite(buffer, sizeof(char), len, received_file);
+                remain_data -= len;
+            }
+            fclose(received_file);
+        
+            process_csv(csv_file);
+            // Remove file that was created, after data is stored in memory
+            remove(file_path);
+        }
     }
-    buffer[len] = '\0';
-
-    // Get the request string
-    char request[5];
-    strncpy(request, buffer, 4);
-    request[4] = '\0';
-
-    // Check to see the request type
-    if(strcmp(request, "DUMP") == 0){
-        printf("Sorting then dumping...\n");
-
-        // Get the remaining 2 args
-        char column[3];
-        strok(buffer, "-");
-        strok(buffer, "-");
-        strcpy(column, buffer);
-        int column_to_sort = atoi(column);
-        strok(buffer, "-");
-        char data[3];
-        strcpy(data, buffer);
-        int data_flag = atoi(data);
-        
-        // Sort the big DB
-        sort(big_db, column_to_sort, data_flag,0,big_lc-1);
-        
-        // Output to file TODO: send a path to this call
-        print_to_csv(big_db, big_lc, "DUMMY", first_line);
-
-        //TODO use sendfile to send the above back to the client
-        
-    } else { // This is Sort and a file descriptor is provided
-        printf("Adding to Mega DB...\n");
-        FILE *csv_file = (FILE*) fdopen(client_sock, "r");
-        process_csv(csv_file);
-        // TODO: return a response possibly
-    }
-
+    close(clientSocket);
     pthread_exit(0);
 }
 
