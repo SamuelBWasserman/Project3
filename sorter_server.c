@@ -14,13 +14,11 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
-// Create global variables to store CSV data
-data_row **big_db;
-int big_lc = 0;
+
 // Stores the first line of the CSV. (Represents the column headers)
 char *first_line;
 // Create the locks for the threads
-pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+// pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char **(argv)){
     // Check for correct number or args
@@ -119,7 +117,9 @@ void *handle_connection(void *arg){
     // Create an integer to hold the client IP value
     client_args *c_args = arg;
     int client_sock = c_args -> client_sock;
-
+    // Create global variables to store CSV data
+    data_row **big_db;
+    int big_lc = 0;
     // Get data from the client
     char buffer[65535];
     int len;
@@ -220,7 +220,7 @@ void *handle_connection(void *arg){
                 remaining_data -= len;
             }
         
-            process_csv(csv_file);
+            process_csv(csv_file, big_db, big_lc);
             // Remove file that was created, after data is stored in memory
             fclose(csv_file);
             remove(file_path);
@@ -233,7 +233,7 @@ void *handle_connection(void *arg){
 
 /* This function takes in a csv_file, and appends the rows of data to a data structure */
 /* in the heap for later sorting */
-void process_csv(FILE *csv_file){
+void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
   printf("%d, ", pthread_self());
   /* Processes the CSV file */
   // cast the arguments passed from pthread_create
@@ -258,7 +258,7 @@ void process_csv(FILE *csv_file){
   int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
 
   while(fgets(line, 600, csv_file) != NULL){
-  	pthread_mutex_lock(&MUTEX);
+  	//pthread_mutex_lock(&MUTEX);
     int i;
     if(line_counter < 0){
       line_counter++;
@@ -271,7 +271,7 @@ void process_csv(FILE *csv_file){
         fflush(stdout);
         return;
       }
-      pthread_mutex_unlock(&MUTEX);
+      //pthread_mutex_unlock(&MUTEX);
       continue;
     }
     
@@ -345,7 +345,7 @@ void process_csv(FILE *csv_file){
     big_lc++;
     big_db = (data_row**)realloc(big_db, (sizeof(data_row)*(big_lc+1)));
     big_db[big_lc] = (data_row*)malloc(sizeof(data_row));
-    pthread_mutex_unlock(&MUTEX);
+    // pthread_mutex_unlock(&MUTEX);
   }
    pthread_exit(0);
 }
