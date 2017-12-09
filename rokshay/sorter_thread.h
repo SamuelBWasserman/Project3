@@ -1,9 +1,3 @@
-/*
-	Implemented by Akshay Mehta and Rohit Thakre
-	Group: Tingerz
-	November 29th, 2017
-	Professor Francisco
-*/
 #ifndef SORTER_THREAD_H_
 #define SORTER_THREAD_H_
 
