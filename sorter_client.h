@@ -12,18 +12,24 @@
 #include <limits.h> 
 #include <sys/mman.h>
 #include <pthread.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 /* function prototypes */
 void outputErrorMessage(char *error);
 // void trim(char *token);
 // char *tokenizer(char **input);
 char* attachName(const char* directoryName, const char* name);
+char* attachSorted();
 void outputData();
 int switchVariable(const char* columnType);
 int checkCSV(char *filename);
 int checkRepeat(char *name);
 void* traverseDirectory(void* arg);
 void* sendRequest(void* arg);
+void gotoxy(int x, int y);
 
 // typedef struct node {
 // 	char *color;

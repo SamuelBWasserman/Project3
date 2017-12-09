@@ -3,12 +3,15 @@
 #define BUFFER_SIZE 2048 // large enough buffer size
 
 int switchValue;
+char* columnType;
 char *outputDirectory;
+char *hostName;
+char *portNumber;
 pthread_t *tids;
 int threadCount = 0;
 int threadSize = 0;
-int total = 0;
-pthread_mutex_t listMutex = PTHREAD_MUTEX_INITIALIZER;
+// int total = 0;
+// pthread_mutex_t listMutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char** argv) {
     if(argc != 7 && argc != 9 && argc != 11) { //Make sure input is valid.
@@ -19,10 +22,10 @@ int main(int argc, char** argv) {
     }
 
     char* directoryName = (char*)malloc(sizeof(char)*BUFFER_SIZE);
-    char* columnType = (char*)malloc(sizeof(char)*BUFFER_SIZE);
+    columnType = (char*)malloc(sizeof(char)*BUFFER_SIZE);
     outputDirectory = (char*)malloc(sizeof(char)*BUFFER_SIZE);
-    char* hostName = (char*)malloc(sizeof(char)*BUFFER_SIZE);
-    char* portNumber = (char*)malloc(sizeof(char)*BUFFER_SIZE);
+    hostName = (char*)malloc(sizeof(char)*BUFFER_SIZE);
+    portNumber = (char*)malloc(sizeof(char)*BUFFER_SIZE);
 
     if (argc == 7) {
     	strcpy(columnType, argv[2]);
@@ -68,6 +71,65 @@ int main(int argc, char** argv) {
     for (x = 0; x < threadSize; x++) {
     	pthread_join(tids[x], NULL);
     }
+
+    int sockfd = 0;
+    int bytesReceived = 0;
+    char recvBuff[1024];
+    memset(recvBuff, '0', sizeof(recvBuff));
+    struct sockaddr_in serv_addr;
+
+    /* Create a socket first */
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0))< 0)
+    {
+    	outputErrorMessage("could not create socket");
+    }
+
+    /* Initialize sockaddr_in data structure */
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(atoi(portNumber)); // port
+    serv_addr.sin_addr.s_addr = inet_addr(hostName);
+
+    /* Attempt a connection */
+    if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))<0)
+    {
+    	outputErrorMessage("connect failed");
+    }
+
+    printf("Connected to ip: %s : %d\n",inet_ntoa(serv_addr.sin_addr),ntohs(serv_addr.sin_port));
+
+   	 /* Create file where data will be stored */
+    FILE *fp;
+    char* outputName = (char*)malloc(strlen(attachSorted()) + 1);
+	strcpy(outputName, attachSorted());
+	char* fName = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
+	strcpy(fName, attachName(outputDirectory, outputName));
+    read(sockfd, fName, 256);
+	//strcat(fname,"AK");
+    printf("File Name: %s\n", fName);
+    printf("Receiving file...");
+    fp = fopen(fName, "ab"); 
+    if(NULL == fp)
+    {
+    	outputErrorMessage("error opening file");
+    }
+    long double sz=1;
+    /* Receive data in chunks of 256 bytes */
+    while((bytesReceived = read(sockfd, recvBuff, 1024)) > 0)
+    { 
+    	sz++;
+    	gotoxy(0,4);
+    	printf("Received: %Lf Mb",(sz/1024));
+    	fflush(stdout);
+        // recvBuff[n] = 0;
+    	fwrite(recvBuff, 1, bytesReceived, fp);
+        // printf("%s \n", recvBuff);
+    }
+
+    if(bytesReceived < 0)
+    {
+    	printf("\n Read Error \n");
+    }
+    printf("\nFile OK....Completed\n");
 
     // pFirstNode = SortList(pFirstNode, switchValue, threadSize);
     // outputData();
@@ -129,7 +191,68 @@ void outputErrorMessage(char *error) { // Standard output error function
 }
 
 void* sendRequest(void* arg) {
-	
+	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
+	strcpy(fileName, (char*) arg);
+
+	int socketDESC;
+	struct sockaddr_in serverADDRESS;
+	struct hostent *hostINFO;
+	FILE * file_to_send;
+	int ch;
+	char toSEND[1];
+	char remoteFILE[4096];
+	int count1=1,count2=1, percent;
+
+	hostINFO = gethostbyname(hostName);
+	if (hostINFO == NULL) {
+		outputErrorMessage("problem interpreting host");
+	}
+
+	socketDESC = socket(AF_INET, SOCK_STREAM, 0);
+	if (socketDESC < 0) {
+		outputErrorMessage("cannot create socket");
+	}
+
+	serverADDRESS.sin_family = hostINFO->h_addrtype;
+	memcpy((char *) &serverADDRESS.sin_addr.s_addr, hostINFO->h_addr_list[0], hostINFO->h_length);
+	serverADDRESS.sin_port = htons(atoi(portNumber));
+
+	if (connect(socketDESC, (struct sockaddr *) &serverADDRESS, sizeof(serverADDRESS)) < 0) {
+		outputErrorMessage("cannot connect");
+	}
+
+
+	file_to_send = fopen (fileName,"r");
+	if(!file_to_send) {
+		close(socketDESC);
+		outputErrorMessage("error opening file");
+	} else {
+		long fileSIZE;
+		fseek (file_to_send, 0, SEEK_END); fileSIZE =ftell (file_to_send);
+		rewind(file_to_send);
+
+		sprintf(remoteFILE,"FBEGIN:%s:%ld\r\n", fileName, fileSIZE);
+		send(socketDESC, remoteFILE, sizeof(remoteFILE), 0);
+
+		percent = fileSIZE / 100;
+		while((ch=getc(file_to_send))!=EOF){
+			toSEND[0] = ch;
+			send(socketDESC, toSEND, 1, 0);
+			if( count1 == count2 ) {
+				printf("33[0;0H");
+				printf( "\33[2J");
+				printf("Filename: %s\n", fileName);
+				printf("Filesize: %ld Kb\n", fileSIZE / 1024);
+				printf("Percent : %d%% ( %d Kb)\n",count1 / percent ,count1 / 1024);
+				count1+=percent;
+			}
+			count2++;
+
+		}
+	}
+	fclose(file_to_send);
+	close(socketDESC);
+	pthread_exit(0);
 }
 
 // void outputData() { // output data to output csv file.
@@ -181,20 +304,20 @@ char* attachName(const char* directoryName, const char* name) {
 	return result;
 }
 
-// char* attachSorted() {
-// 	char* name = (char*)malloc(9);
-// 	strcpy(name, "AllFiles");
+char* attachSorted() {
+	char* name = (char*)malloc(9);
+	strcpy(name, "AllFiles");
 
-// 	char* output_filename = (char*) malloc(strlen(name) + strlen(columnType) + 13);
-// 	char* s1 = "-sorted-";
-// 	char* s2 = ".csv";
-// 	strcpy(output_filename, name);
-// 	strcat(output_filename, s1);
-// 	strcat(output_filename, columnType);
-// 	strcat(output_filename, s2);
+	char* output_filename = (char*) malloc(strlen(name) + strlen(columnType) + 13);
+	char* s1 = "-sorted-";
+	char* s2 = ".csv";
+	strcpy(output_filename, name);
+	strcat(output_filename, s1);
+	strcat(output_filename, columnType);
+	strcat(output_filename, s2);
 
-// 	return output_filename;
-// }
+	return output_filename;
+}
 
 int switchVariable(const char* columnType) {
 	if(strcmp(columnType, "color") == 0) {
@@ -318,4 +441,9 @@ int checkRepeat(char *name) {
 	else {
 		return 1;
 	}
+}
+
+void gotoxy(int x, int y)
+{
+	printf("%c[%d;%df",0x1B,y,x);
 }
