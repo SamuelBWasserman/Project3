@@ -30,6 +30,10 @@ typedef struct directory_args{
 } directory_args;
 
 
+typedef struct client_args{
+    int client_sock; // The socket of the client that gets passed to handle connection
+} client_args;
+
 // Merge sort can take in the column number that needs to be sorted and return a
 // new sorted array of rows.
 int strallcmp(char const *a, char const *b);

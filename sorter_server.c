@@ -91,10 +91,14 @@ int main(int argc, char **(argv)){
         socklen_t addr_size = sizeof(struct sockaddr_in);
         int res = getpeername(clientSocket, (struct sockaddr *)&addr, &addr_size);
         printf("Connection received from %d\n", inet_ntoa(addr.sin_addr));
+        
+        // Put clientSocket into struct to pass to thread
+        client_args *clientArgs = (client_args *)malloc(sizeof(client_args));
+        clientArgs->client_sock = clientSocket;
 
         // Spawn a new thread
         pthread_t client_threadid;
-        pthread_create(&client_threadid, NULL, handle_connection, (void *)clientSocket);
+        pthread_create(&client_threadid, NULL, handle_connection, (void *)clientArgs);
 
         // Add TID to TID array
         client_tids[max_tid] = client_threadid;
@@ -113,7 +117,8 @@ int main(int argc, char **(argv)){
 
 void *handle_connection(void *arg){
     // Create an integer to hold the client IP value
-    int client_sock = (int)arg;
+    client_args *c_args = arg;
+    int client_sock = c_args -> client_sock;
 
     // Get data from the client
     char buffer[65535];
@@ -161,17 +166,19 @@ void *handle_connection(void *arg){
             print_to_csv(big_db, big_lc, file_path, first_line);
             FILE *csv = fopen(file_path, "r");
             
-            // Get file size
-            fseek(csv, 0, SEEK_END);
-            int file_size = ftell(fileno(csv));
-            
-             // Sending file size 
-            len = send(client_sock, file_size, sizeof(file_size), 0);
-            
             struct stat file_stat;
 	        fstat(fileno(csv), &file_stat);
 	        offset = 0;
             remain_data = file_stat.st_size;
+            
+            // Get file size
+            fseek(csv, 0, SEEK_END);
+            char file_size[256];
+            sprintf(file_size, "%d", file_stat.st_size);
+             // Sending file size 
+            len = send(client_sock, file_size, sizeof(file_size),0);
+            
+           
             /* Sending file data */
             while (((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
             {
