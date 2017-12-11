@@ -83,6 +83,7 @@ int main(int argc, char **(argv)){
     
     // Create new client sockets and spawn new threads
     printf("Waiting for connections...\n");
+    while(1)
     while((clientSocket = accept(setupSocket, NULL, NULL)) != -1){ // TODO: Needs to handle signal kill
         // Print the IP address of the client
         struct sockaddr_in addr;
