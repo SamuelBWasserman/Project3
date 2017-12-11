@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
     }
 
     int sockfd = 0;
+    int sentconf;
     int bytesReceived = 0;
     char recvBuff[1024];
     memset(recvBuff, '0', sizeof(recvBuff));
@@ -96,6 +97,21 @@ int main(int argc, char** argv) {
     }
 
     printf("Connected to ip: %s : %d\n",inet_ntoa(serv_addr.sin_addr),ntohs(serv_addr.sin_port));
+
+    char mesg[8];
+    char *dump = "DUMP-";
+    int columnNumber = switchVariable(columnType);
+    int dataType = 0;
+    char columnNumberString[1];
+    char dataTypeString[1];
+    char *dash = "-";
+    itoa(columnNumber,columnNumberString,10);
+    itoa(dataType,dataTypeString,10);
+    strcpy(mesg, dump);
+    strcat(mesg,columnNumberString);
+    strcat(mesg,dash);
+    strcat(mesg,dataTypeString);
+    sentconf = send(sockfd, mesg, strlen(mesg), 0);
 
    	 /* Create file where data will be stored */
     FILE *fp;
