@@ -105,8 +105,10 @@ int main(int argc, char** argv) {
     char columnNumberString[1];
     char dataTypeString[1];
     char *dash = "-";
-    itoa(columnNumber,columnNumberString,10);
-    itoa(dataType,dataTypeString,10);
+    // itoa(columnNumber,columnNumberString,10);
+    // itoa(dataType,dataTypeString,10);
+    snprintf(columnNumberString, sizeof(char), "%s", columnNumber);
+    snprintf(dataTypeString, sizeof(char), "%s", dataType);
     strcpy(mesg, dump);
     strcat(mesg,columnNumberString);
     strcat(mesg,dash);
