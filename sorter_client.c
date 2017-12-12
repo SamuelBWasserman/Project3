@@ -12,7 +12,7 @@ int threadCount = 0;
 int threadSize = 0;
 int sockfd = 0;
 // int total = 0;
-// pthread_mutex_t listMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t socketLock = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char** argv) {
     if(argc != 7 && argc != 9 && argc != 11) { //Make sure input is valid.
@@ -183,17 +183,26 @@ void* traverseDirectory(void* arg) {
 			tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
 			pthread_create(&tids[threadCount], NULL, traverseDirectory, newPath);
 			threadCount = threadCount + 1;
-			fprintf(stderr, "A thread was created!\n");
+			//fprintf(stderr, "A thread was created!\n");
 		}
 		else if (strstr(dir->d_name, ".csv") && dir->d_type == 8) {
 			if (checkRepeat(dir->d_name) == 1) {
 				if (checkCSV(newPath) == 1) {
 					printf("CSV Found: [%s]\n", newPath);
-					threadSize = threadSize + 1;
-					tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
-					pthread_create(&tids[threadCount], NULL, sendRequest, newPath);
-					threadCount = threadCount + 1;
+					//threadSize = threadSize + 1; // THIS IS UNECESSARY CODE WTF YOU ASSHOLES
+					//tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
+					//pthread_create(&tids[threadCount], NULL, sendRequest, newPath);
+					//threadCount = threadCount + 1;
 					// fprintf(stderr, "A thread was created!\n");
+
+					// Get a lock and call the sendRequest function
+					// LOCK HERE
+					pthread_mutex_lock(&socketLock);
+					printf("LOCKED SOCKET...SENDING FILE %s NOW\n", newPath);
+					sendRequest(newPath);
+					printf("DONE SENDING FILE %s\n", newPath);
+					pthread_mutex_unlock(&socketLock);
+					// UNLOCK HERE
 				}
 				else {
 					outputErrorMessage("invalid csv file");
@@ -211,31 +220,36 @@ void outputErrorMessage(char *error) { // Standard output error function
 	exit(0);
 }
 
-void* sendRequest(void *arg) {
-	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
-	strcpy(fileName, (char*) arg);
+void* sendRequest(char  *fileName) {
+  //char* fileName = (char*)malloc(strlen((char*) arg) + 1);
+  //strcpy(fileName, (char*) arg);
 
-	ssize_t len;
-	int sent_bytes = 0;
-	int offset;
-	int remain_data;
+    ssize_t len;
+    int sent_bytes = 0;
+    off_t offset;
+    int remain_data;
 
-	FILE *csv = fopen(fileName, "r");
-	struct stat file_stat;
-	fstat(fileno(csv), &file_stat);
-	offset = 0;
+    FILE *csv = fopen(fileName, "r");
+    struct stat file_stat;
+    fstat(fileno(csv), &file_stat);
+    offset = 0;
     remain_data = file_stat.st_size;
 
     fseek(csv, 0, SEEK_END);
     char file_size[256];
     sprintf(file_size, "%d", file_stat.st_size);
     // Sending file size 
+    printf("SENDING FILE SIZE\n");
     len = send(sockfd, file_size, sizeof(file_size),0);
-
-    while (((sent_bytes = sendfile(sockfd, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
+    printf("FILE SIZE TO SEND: %s\n", remain_data);
+    printf("SENDING THE FILE YO\n");
+    while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, fileno(csv), &offset, BUFSIZ)) > 0))
     {
         remain_data -= sent_bytes;
     }
+    printf("I'M DONZO BEANS WITH FILE OF SIZE %d\n", file_size);
+
+    fclose(csv);
 
 	// if (fstat(fd, &file_stat) < 0)
 	// {
@@ -275,8 +289,6 @@ void* sendRequest(void *arg) {
 	// 	remain_data -= sent_bytes;
 	// 	fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
 	// }
-
-	pthread_exit(0);
 }
 
 // void* sendRequest(void* arg) {

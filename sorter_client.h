@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/uio.h>
+#include <sys/sendfile.h>
 
 /* function prototypes */
 void outputErrorMessage(char *error);
@@ -29,7 +30,7 @@ int switchVariable(const char* columnType);
 int checkCSV(char *filename);
 int checkRepeat(char *name);
 void* traverseDirectory(void* arg);
-void* sendRequest(void* arg);
+void* sendRequest(char* arg);
 void gotoxy(int x, int y);
 
 #endif

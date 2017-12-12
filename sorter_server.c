@@ -13,7 +13,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
-
+#include <sys/sendfile.h>
 // Stores the first line of the CSV. (Represents the column headers)
 char *first_line;
 // Create the locks for the threads
@@ -121,7 +121,7 @@ void *handle_connection(void *arg){
     data_row **big_db;
     int big_lc = 0;
     // Get data from the client
-    char buffer[65535];
+    char buffer[BUFSIZ];
     int len;
     // TODO Optimization: Let's spawn a thread to handle this while loop.
     while((len = read(client_sock, buffer, sizeof(buffer) - 1)) >= 0){
@@ -158,7 +158,7 @@ void *handle_connection(void *arg){
             char *file_path = realpath(file_name, buf);
             
             int sent_bytes = 0;
-            int offset;
+            off_t offset;
             int remain_data;
             ssize_t len;
             
@@ -180,7 +180,7 @@ void *handle_connection(void *arg){
             
            
             /* Sending file data */
-            while (((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
+            while ((remain_data > 0) && ((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0))
             {
                 remain_data -= sent_bytes;
             }
@@ -192,10 +192,12 @@ void *handle_connection(void *arg){
             int file_size;
             recv(client_sock, buffer, BUFSIZ, 0);
             file_size = atoi(buffer);
+	    memset(buffer,0,sizeof(buffer));
             printf("File Size: %d\n", file_size);
+	    if(file_size == 0)
+		pthread_exit(0);
 	    int remaining_data = 0;
             char buf[PATH_MAX];
- 	    
 	    FILE *csv_file = fopen("file_buffer.csv", "ab+");
 	    if (csv_file == NULL)
             {
@@ -205,16 +207,26 @@ void *handle_connection(void *arg){
             }
             ssize_t len;
             remaining_data = file_size;
-            while (((len = recv(client_sock, buffer, BUFSIZ, 0)) > 0) && (remaining_data > 0))
-            {
+	    printf("GETTING FILE FROM CLIENT\n");
+            while ((remaining_data > 0) && ((len = recv(client_sock, buffer, BUFSIZ, 0)) > 0))
+            {	
+		printf("%s\n", buffer);
                 fwrite(buffer, sizeof(char), len, csv_file);
+		memset(buffer,0,sizeof(buffer));
                 remaining_data -= len;
             }
-        
-            process_csv(csv_file, big_db, big_lc);
-            // Remove file that was created, after data is stored in memory
-            fclose(csv_file);
-            remove("file_buffer.csv");
+       
+  	   //   fclose(csv_file);
+	   char line[600];
+           printf("Printing first line \n");
+	   fgets(line, 600, csv_file);
+ 	   printf("%s\n", line);
+	   fclose(csv_file);
+	   csv_file = freopen("file_buffer.csv", "r", csv_file);
+	   process_csv(csv_file, big_db, big_lc);
+	   // Remove file that was created, after data is stored in memory
+           // freopen("file_buffer.csv","r", csv_file);
+           remove("file_buffer.csv");
         }
     }
     close(client_sock);
@@ -225,12 +237,8 @@ void *handle_connection(void *arg){
 /* This function takes in a csv_file, and appends the rows of data to a data structure */
 /* in the heap for later sorting */
 void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
-  printf("%d, ", pthread_self());
   /* Processes the CSV file */
-  // cast the arguments passed from pthread_create
-  // thread_args *t_args = args;
-  
-  
+  printf("Processing CSV\n");  
   // Define path variables
   char curr_dir[_POSIX_PATH_MAX] = {0};
   char *path = NULL;
@@ -250,6 +258,7 @@ void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
 
   while(fgets(line, 600, csv_file) != NULL){
   	//pthread_mutex_lock(&MUTEX);
+    printf("%s\n",line);
     int i;
     if(line_counter < 0){
       line_counter++;
