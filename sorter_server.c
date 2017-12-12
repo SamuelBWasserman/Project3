@@ -14,7 +14,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
-
 // Stores the first line of the CSV. (Represents the column headers)
 char *first_line;
 // Create the locks for the threads
@@ -193,21 +192,12 @@ void *handle_connection(void *arg){
             int file_size;
             recv(client_sock, buffer, BUFSIZ, 0);
             file_size = atoi(buffer);
-            int remaining_data = 0;
+            printf("File Size: %d\n", file_size);
+	    int remaining_data = 0;
             char buf[PATH_MAX];
-            char file_name[200]; // Arbitrary length
-        
-            // Creates a relative path /sorter_files/tid#.csv
-            strcpy(file_name,"/sorter_files/");
-            int a = (int)pthread_self();
-            char string_buffer[20];
-            snprintf(string_buffer, 6, "%s", a);
-            strcpy(file_name, string_buffer);
-            strcpy(file_name, ".csv");
-        
-            char *file_path = realpath(file_name, buf);
-            FILE *csv_file = (FILE*) fopen(file_path, "w");
-            if (csv_file == NULL)
+ 	    
+	    FILE *csv_file = fopen("file_buffer.csv", "ab+");
+	    if (csv_file == NULL)
             {
                 fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
 
@@ -224,7 +214,7 @@ void *handle_connection(void *arg){
             process_csv(csv_file, big_db, big_lc);
             // Remove file that was created, after data is stored in memory
             fclose(csv_file);
-            remove(file_path);
+            // remove(ptr);
         }
     }
     close(client_sock);
