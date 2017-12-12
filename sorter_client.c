@@ -52,10 +52,6 @@ int main(int argc, char** argv) {
 
     switchValue = switchVariable(columnType);
 
-    // fprintf(stdout, "Initial PID: %d\n", getpid());
-    // fprintf(stdout, "TIDS of all child threads: ");
-    // fflush(stdout);
-
     fprintf(stderr, "Column Type  : [%s]\n", columnType);
     fprintf(stderr, "Column Number: [%d]\n", switchValue);
     fprintf(stderr, "Host Name    : [%s]\n", hostName);
@@ -92,8 +88,11 @@ int main(int argc, char** argv) {
 
     int x;
     for (x = 0; x < threadSize; x++) {
+    	fprintf(stderr, "%lu, ", (unsigned long)tids[x]);
     	pthread_join(tids[x], NULL);
     }
+
+    printf("Thread Count: [%d]\n", threadCount);
 
     int sentconf;
     int bytesReceived = 0;
@@ -156,6 +155,8 @@ int main(int argc, char** argv) {
     // outputData();
     // fprintf(stdout, "\nTotal number of threads: %d\n", threadSize);
 
+    fprintf(stderr, "I RAM!\n");
+
     return 0;
 }
 
@@ -179,10 +180,15 @@ void* traverseDirectory(void* arg) {
 			continue;
 		}
 		if (dir->d_type == 4) {
+			if (strstr(dir->d_name, ".") != NULL) {
+				continue;
+			}
+			else {
 			threadSize = threadSize + 1;
 			tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
 			pthread_create(&tids[threadCount], NULL, traverseDirectory, newPath);
 			threadCount = threadCount + 1;
+			}
 			//fprintf(stderr, "A thread was created!\n");
 		}
 		else if (strstr(dir->d_name, ".csv") && dir->d_type == 8) {
@@ -197,11 +203,11 @@ void* traverseDirectory(void* arg) {
 
 					// Get a lock and call the sendRequest function
 					// LOCK HERE
-					pthread_mutex_lock(&socketLock);
-					printf("LOCKED SOCKET...SENDING FILE %s NOW\n", newPath);
-					sendRequest(newPath);
-					printf("DONE SENDING FILE %s\n", newPath);
-					pthread_mutex_unlock(&socketLock);
+					// pthread_mutex_lock(&socketLock);
+					// printf("LOCKED SOCKET...SENDING FILE %s NOW\n", newPath);
+					// sendRequest(newPath);
+					// printf("DONE SENDING FILE %s\n", newPath);
+					// pthread_mutex_unlock(&socketLock);
 					// UNLOCK HERE
 				}
 				else {
@@ -220,7 +226,7 @@ void outputErrorMessage(char *error) { // Standard output error function
 	exit(0);
 }
 
-void* sendRequest(char  *fileName) {
+void* sendRequest(char *fileName) {
   //char* fileName = (char*)malloc(strlen((char*) arg) + 1);
   //strcpy(fileName, (char*) arg);
 
@@ -250,6 +256,7 @@ void* sendRequest(char  *fileName) {
     printf("DONE WITH FILE: %s\n", fileName);
 
     fclose(csv);
+}
 
 	// if (fstat(fd, &file_stat) < 0)
 	// {
@@ -289,7 +296,6 @@ void* sendRequest(char  *fileName) {
 	// 	remain_data -= sent_bytes;
 	// 	fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
 	// }
-}
 
 // void* sendRequest(void* arg) {
 // 	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
