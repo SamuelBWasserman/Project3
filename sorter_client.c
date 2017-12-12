@@ -10,6 +10,7 @@ char *portNumber;
 pthread_t *tids;
 int threadCount = 0;
 int threadSize = 0;
+int sockfd = 0;
 // int total = 0;
 // pthread_mutex_t listMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -62,21 +63,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Directory    : [%s]\n", directoryName);
     fprintf(stderr, "Output       : [%s]\n\n", outputDirectory);
 
-    threadSize = threadSize + 1;
-    tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
-    pthread_create(&tids[threadCount], NULL, traverseDirectory, directoryName);
-    threadCount = threadCount + 1;
-
-    int x;
-    for (x = 0; x < threadSize; x++) {
-    	pthread_join(tids[x], NULL);
-    }
-
-    int sockfd = 0;
-    int sentconf;
-    int bytesReceived = 0;
-    char recvBuff[1024];
-    memset(recvBuff, '0', sizeof(recvBuff));
     struct sockaddr_in serv_addr;
 
     /* Create a socket first */
@@ -98,6 +84,20 @@ int main(int argc, char** argv) {
 
     printf("Connected to ip: %s : %d\n",inet_ntoa(serv_addr.sin_addr),ntohs(serv_addr.sin_port));
 
+    threadSize = threadSize + 1;
+    tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
+    pthread_create(&tids[threadCount], NULL, traverseDirectory, directoryName);
+    threadCount = threadCount + 1;
+
+    int x;
+    for (x = 0; x < threadSize; x++) {
+    	pthread_join(tids[x], NULL);
+    }
+
+    int sentconf;
+    int bytesReceived = 0;
+    char recvBuff[1024];
+    memset(recvBuff, '0', sizeof(recvBuff));
     char mesg[8];
     char *dump = "DUMP-";
     int columnNumber = switchVariable(columnType);
@@ -107,8 +107,8 @@ int main(int argc, char** argv) {
     char *dash = "-";
     // itoa(columnNumber,columnNumberString,10);
     // itoa(dataType,dataTypeString,10);
-    snprintf(columnNumberString, sizeof(char), "%s", columnNumber);
-    snprintf(dataTypeString, sizeof(char), "%s", dataType);
+    snprintf(columnNumberString, sizeof(char), "%d", columnNumber);
+    snprintf(dataTypeString, sizeof(char), "%d", dataType);
     strcpy(mesg, dump);
     strcat(mesg,columnNumberString);
     strcat(mesg,dash);
@@ -118,9 +118,9 @@ int main(int argc, char** argv) {
    	 /* Create file where data will be stored */
     FILE *fp;
     char* outputName = (char*)malloc(strlen(attachSorted()) + 1);
-	strcpy(outputName, attachSorted());
-	char* fName = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
-	strcpy(fName, attachName(outputDirectory, outputName));
+    strcpy(outputName, attachSorted());
+    char* fName = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
+    strcpy(fName, attachName(outputDirectory, outputName));
     read(sockfd, fName, 256);
 	//strcat(fname,"AK");
     printf("File Name: %s\n", fName);
@@ -148,6 +148,8 @@ int main(int argc, char** argv) {
     	printf("\n Read Error \n");
     }
     printf("\nFile OK....Completed\n");
+
+    close(sockfd);
 
     // pFirstNode = SortList(pFirstNode, switchValue, threadSize);
     // outputData();
@@ -208,70 +210,116 @@ void outputErrorMessage(char *error) { // Standard output error function
 	exit(0);
 }
 
-void* sendRequest(void* arg) {
+void* sendRequest(void *arg) {
 	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
 	strcpy(fileName, (char*) arg);
 
-	int socketDESC;
-	struct sockaddr_in serverADDRESS;
-	struct hostent *hostINFO;
-	FILE * file_to_send;
-	int ch;
-	char toSEND[1];
-	char remoteFILE[4096];
-	int count1=1,count2=1, percent;
+	ssize_t len;
+	int sent_bytes = 0;
+	int offset;
+	int remain_data;
 
-	hostINFO = gethostbyname(hostName);
-	if (hostINFO == NULL) {
-		outputErrorMessage("problem interpreting host");
-	}
+	FILE *csv = fopen(fileName, "r");
+	struct stat file_stat;
+	fstat(fileno(csv), &file_stat);
+	offset = 0;
+    remain_data = file_stat.st_size;
 
-	socketDESC = socket(AF_INET, SOCK_STREAM, 0);
-	if (socketDESC < 0) {
-		outputErrorMessage("cannot create socket");
-	}
+    fseek(csv, 0, SEEK_END);
+    char file_size[256];
+    sprintf(file_size, "%d", file_stat.st_size);
+    // Sending file size 
+    len = send(sockfd, file_size, sizeof(file_size),0);
 
-	serverADDRESS.sin_family = hostINFO->h_addrtype;
-	memcpy((char *) &serverADDRESS.sin_addr.s_addr, hostINFO->h_addr_list[0], hostINFO->h_length);
-	serverADDRESS.sin_port = htons(atoi(portNumber));
+    while (((sent_bytes = sendfile(sockfd, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
+    {
+        remain_data -= sent_bytes;
+    }
 
-	if (connect(socketDESC, (struct sockaddr *) &serverADDRESS, sizeof(serverADDRESS)) < 0) {
-		outputErrorMessage("cannot connect");
-	}
+	// if (fstat(fd, &file_stat) < 0)
+	// {
+	// 	outputErrorMessage("error fstat");
+	// }
 
+	// fprintf(stdout, "File Size: \n%lld bytes\n", file_stat.st_size);
 
-	file_to_send = fopen (fileName,"r");
-	if(!file_to_send) {
-		close(socketDESC);
-		outputErrorMessage("error opening file");
-	} else {
-		long fileSIZE;
-		fseek (file_to_send, 0, SEEK_END); fileSIZE =ftell (file_to_send);
-		rewind(file_to_send);
+	// sock_len = sizeof(struct sockaddr_in);
+ //        /* Accepting incoming peers */
+	// // peer_socket = accept(server_socket, (struct sockaddr *)&peer_addr, &sock_len);
+	// // if (peer_socket == -1)
+	// // {
+	// // 	fprintf(stderr, "Error on accept --> %s", strerror(errno));
 
-		sprintf(remoteFILE,"FBEGIN:%s:%ld\r\n", fileName, fileSIZE);
-		send(socketDESC, remoteFILE, sizeof(remoteFILE), 0);
+	// // 	exit(EXIT_FAILURE);
+	// // }
+	// // fprintf(stdout, "Accept peer --> %s\n", inet_ntoa(peer_addr.sin_addr));
 
-		percent = fileSIZE / 100;
-		while((ch=getc(file_to_send))!=EOF){
-			toSEND[0] = ch;
-			send(socketDESC, toSEND, 1, 0);
-			if( count1 == count2 ) {
-				printf("33[0;0H");
-				printf( "\33[2J");
-				printf("Filename: %s\n", fileName);
-				printf("Filesize: %ld Kb\n", fileSIZE / 1024);
-				printf("Percent : %d%% ( %d Kb)\n",count1 / percent ,count1 / 1024);
-				count1+=percent;
-			}
-			count2++;
+	// sprintf(file_size, "%lld", file_stat.st_size);
 
-		}
-	}
-	fclose(file_to_send);
-	close(socketDESC);
+ //        /* Sending file size */
+	// len = send(sockfd, file_size, sizeof(file_size), 0);
+	// if (len < 0)
+	// {
+	// 	outputErrorMessage("error on sending greetings");
+	// }
+
+	// fprintf(stdout, "Server sent %d bytes for the size\n", len);
+
+	// offset = 0;
+	// remain_data = file_stat.st_size;
+ //        /* Sending file data */
+	// while (((sent_bytes = sendfile(sockfd, fd, &offset, BUFSIZ)) > 0) && (remain_data > 0))
+	// {
+	// 	fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+	// 	remain_data -= sent_bytes;
+	// 	fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+	// }
+
 	pthread_exit(0);
 }
+
+// void* sendRequest(void* arg) {
+// 	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
+// 	strcpy(fileName, (char*) arg);
+
+// 	FILE * file_to_send;
+// 	int ch;
+// 	char toSEND[1];
+// 	char remoteFILE[4096];
+// 	int count1=1,count2=1, percent;
+
+// 	file_to_send = fopen (fileName,"r");
+// 	if(!file_to_send) {
+// 		close(sockfd);
+// 		outputErrorMessage("error opening file");
+// 	} else {
+// 		long fileSIZE;
+// 		fseek (file_to_send, 0, SEEK_END); fileSIZE =ftell (file_to_send);
+// 		rewind(file_to_send);
+
+// 		sprintf(remoteFILE,"FBEGIN:%s:%ld\r\n", fileName, fileSIZE);
+// 		send(sockfd, remoteFILE, sizeof(remoteFILE), 0);
+
+// 		percent = fileSIZE / 100;
+// 		while((ch=getc(file_to_send))!=EOF){
+// 			toSEND[0] = ch;
+// 			send(sockfd, toSEND, 1, 0);
+// 			if( count1 == count2 ) {
+// 				printf("33[0;0H");
+// 				printf( "\33[2J");
+// 				printf("Filename: %s\n", fileName);
+// 				printf("Filesize: %ld Kb\n", fileSIZE / 1024);
+// 				printf("Percent : %d%% ( %d Kb)\n",count1 / percent ,count1 / 1024);
+// 				count1+=percent;
+// 			}
+// 			count2++;
+
+// 		}
+// 	}
+// 	fclose(file_to_send);
+// 	close(sockfd);
+// 	pthread_exit(0);
+// }
 
 // void outputData() { // output data to output csv file.
 // 	node *pData = pFirstNode;

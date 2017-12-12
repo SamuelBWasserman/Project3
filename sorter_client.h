@@ -16,6 +16,9 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/uio.h>
 
 /* function prototypes */
 void outputErrorMessage(char *error);
