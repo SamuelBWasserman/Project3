@@ -13,6 +13,7 @@ int threadSize = 0;
 int sockfd = 0;
 // int total = 0;
 pthread_mutex_t socketLock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t socket2Lock = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char** argv) {
     if(argc != 7 && argc != 9 && argc != 11) { //Make sure input is valid.
@@ -94,60 +95,60 @@ int main(int argc, char** argv) {
 
     printf("Thread Count: [%d]\n", threadCount);
 
-    int sentconf;
-    int bytesReceived = 0;
-    char recvBuff[1024];
-    memset(recvBuff, '0', sizeof(recvBuff));
-    char mesg[8];
-    char *dump = "DUMP-";
-    int columnNumber = switchVariable(columnType);
-    int dataType = 0;
-    char columnNumberString[1];
-    char dataTypeString[1];
-    char *dash = "-";
-    // itoa(columnNumber,columnNumberString,10);
-    // itoa(dataType,dataTypeString,10);
-    snprintf(columnNumberString, sizeof(char), "%d", columnNumber);
-    snprintf(dataTypeString, sizeof(char), "%d", dataType);
-    strcpy(mesg, dump);
-    strcat(mesg,columnNumberString);
-    strcat(mesg,dash);
-    strcat(mesg,dataTypeString);
-    sentconf = send(sockfd, mesg, strlen(mesg), 0);
+ //    int sentconf;
+ //    int bytesReceived = 0;
+ //    char recvBuff[1024];
+ //    memset(recvBuff, '0', sizeof(recvBuff));
+ //    char mesg[8];
+ //    char *dump = "DUMP-";
+ //    int columnNumber = switchVariable(columnType);
+ //    int dataType = 0;
+ //    char columnNumberString[1];
+ //    char dataTypeString[1];
+ //    char *dash = "-";
+ //    // itoa(columnNumber,columnNumberString,10);
+ //    // itoa(dataType,dataTypeString,10);
+ //    snprintf(columnNumberString, sizeof(char), "%d", columnNumber);
+ //    snprintf(dataTypeString, sizeof(char), "%d", dataType);
+ //    strcpy(mesg, dump);
+ //    strcat(mesg,columnNumberString);
+ //    strcat(mesg,dash);
+ //    strcat(mesg,dataTypeString);
+ //    sentconf = send(sockfd, mesg, strlen(mesg), 0);
 
-   	 /* Create file where data will be stored */
-    FILE *fp;
-    char* outputName = (char*)malloc(strlen(attachSorted()) + 1);
-    strcpy(outputName, attachSorted());
-    char* fName = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
-    strcpy(fName, attachName(outputDirectory, outputName));
-    read(sockfd, fName, 256);
-	//strcat(fname,"AK");
-    printf("File Name: %s\n", fName);
-    printf("Receiving file...");
-    fp = fopen(fName, "ab"); 
-    if(NULL == fp)
-    {
-    	outputErrorMessage("error opening file");
-    }
-    long double sz=1;
-    /* Receive data in chunks of 256 bytes */
-    while((bytesReceived = read(sockfd, recvBuff, 1024)) > 0)
-    { 
-    	sz++;
-    	gotoxy(0,4);
-    	printf("Received: %Lf Mb",(sz/1024));
-    	fflush(stdout);
-        // recvBuff[n] = 0;
-    	fwrite(recvBuff, 1, bytesReceived, fp);
-        // printf("%s \n", recvBuff);
-    }
+ //   	 /* Create file where data will be stored */
+ //    FILE *fp;
+ //    char* outputName = (char*)malloc(strlen(attachSorted()) + 1);
+ //    strcpy(outputName, attachSorted());
+ //    char* fName = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
+ //    strcpy(fName, attachName(outputDirectory, outputName));
+ //    read(sockfd, fName, 256);
+	// //strcat(fname,"AK");
+ //    printf("File Name: %s\n", fName);
+ //    printf("Receiving file...");
+ //    fp = fopen(fName, "ab"); 
+ //    if(NULL == fp)
+ //    {
+ //    	outputErrorMessage("error opening file");
+ //    }
+ //    long double sz=1;
+ //    /* Receive data in chunks of 256 bytes */
+ //    while((bytesReceived = read(sockfd, recvBuff, 1024)) > 0)
+ //    { 
+ //    	sz++;
+ //    	gotoxy(0,4);
+ //    	printf("Received: %Lf Mb",(sz/1024));
+ //    	fflush(stdout);
+ //        // recvBuff[n] = 0;
+ //    	fwrite(recvBuff, 1, bytesReceived, fp);
+ //        // printf("%s \n", recvBuff);
+ //    }
 
-    if(bytesReceived < 0)
-    {
-    	printf("\n Read Error \n");
-    }
-    printf("\nFile OK....Completed\n");
+ //    if(bytesReceived < 0)
+ //    {
+ //    	printf("\n Read Error \n");
+ //    }
+ //    printf("\nFile OK....Completed\n");
 
     close(sockfd);
 
@@ -155,7 +156,7 @@ int main(int argc, char** argv) {
     // outputData();
     // fprintf(stdout, "\nTotal number of threads: %d\n", threadSize);
 
-    fprintf(stderr, "I RAM!\n");
+    fprintf(stderr, "\n\nI RAM!\n\n");
 
     return 0;
 }
@@ -184,10 +185,12 @@ void* traverseDirectory(void* arg) {
 				continue;
 			}
 			else {
+			pthread_mutex_lock(&socketLock);
 			threadSize = threadSize + 1;
 			tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
 			pthread_create(&tids[threadCount], NULL, traverseDirectory, newPath);
 			threadCount = threadCount + 1;
+			pthread_mutex_unlock(&socketLock);
 			}
 			//fprintf(stderr, "A thread was created!\n");
 		}
@@ -195,20 +198,22 @@ void* traverseDirectory(void* arg) {
 			if (checkRepeat(dir->d_name) == 1) {
 				if (checkCSV(newPath) == 1) {
 					printf("CSV Found: [%s]\n", newPath);
-					//threadSize = threadSize + 1; // THIS IS UNECESSARY CODE WTF YOU ASSHOLES
-					//tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
-					//pthread_create(&tids[threadCount], NULL, sendRequest, newPath);
-					//threadCount = threadCount + 1;
+					pthread_mutex_lock(&socket2Lock);
+					threadSize = threadSize + 1; // THIS IS UNECESSARY CODE WTF YOU ASSHOLES
+					tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
+					pthread_create(&tids[threadCount], NULL, sendRequest, newPath);
+					threadCount = threadCount + 1;
+					pthread_mutex_unlock(&socket2Lock);
 					// fprintf(stderr, "A thread was created!\n");
 
-					// Get a lock and call the sendRequest function
-					// LOCK HERE
+					//Get a lock and call the sendRequest function
+					//LOCK HERE
 					// pthread_mutex_lock(&socketLock);
 					// printf("LOCKED SOCKET...SENDING FILE %s NOW\n", newPath);
 					// sendRequest(newPath);
 					// printf("DONE SENDING FILE %s\n", newPath);
 					// pthread_mutex_unlock(&socketLock);
-					// UNLOCK HERE
+					//UNLOCK HERE
 				}
 				else {
 					outputErrorMessage("invalid csv file");
@@ -226,9 +231,9 @@ void outputErrorMessage(char *error) { // Standard output error function
 	exit(0);
 }
 
-void* sendRequest(char *fileName) {
-  //char* fileName = (char*)malloc(strlen((char*) arg) + 1);
-  //strcpy(fileName, (char*) arg);
+void* sendRequest(void* arg) {
+  	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
+  	strcpy(fileName, (char*) arg);
 
     ssize_t len;
     int sent_bytes = 0;
@@ -256,6 +261,7 @@ void* sendRequest(char *fileName) {
     printf("DONE WITH FILE: %s\n", fileName);
 
     fclose(csv);
+    pthread_exit(0);
 }
 
 	// if (fstat(fd, &file_stat) < 0)
