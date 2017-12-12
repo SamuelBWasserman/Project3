@@ -225,7 +225,7 @@ void *handle_connection(void *arg){
 	   csv_file = freopen("file_buffer.csv", "r", csv_file);
 	   process_csv(csv_file, big_db, big_lc);
 	   // Remove file that was created, after data is stored in memory
-           // freopen("file_buffer.csv","r", csv_file);
+           
            remove("file_buffer.csv");
         }
     }

@@ -238,16 +238,16 @@ void* sendRequest(char  *fileName) {
     fseek(csv, 0, SEEK_END);
     char file_size[256];
     sprintf(file_size, "%d", file_stat.st_size);
-    // Sending file size 
-    printf("SENDING FILE SIZE\n");
+    // Sending file size
     len = send(sockfd, file_size, sizeof(file_size),0);
-    printf("FILE SIZE TO SEND: %s\n", remain_data);
-    printf("SENDING THE FILE YO\n");
+    printf("FILE: %s\n", fileName);
+    //printf("SENDING THE FILE YO\n");
     while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, fileno(csv), &offset, BUFSIZ)) > 0))
     {
         remain_data -= sent_bytes;
     }
-    printf("I'M DONZO BEANS WITH FILE OF SIZE %d\n", file_size);
+
+    printf("DONE WITH FILE: %s\n", fileName);
 
     fclose(csv);
 
