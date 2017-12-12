@@ -64,7 +64,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Output       : [%s]\n\n", outputDirectory);
 
     /* Create a socket first */
-    int s;
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     	outputErrorMessage("could not create socket");
     }
@@ -502,7 +501,7 @@ int checkCSV(char *filename) {
 }
 
 int checkRepeat(char *name) {
-	if (strstr(name, "-sorted")) {
+	if (strstr(name, "-sorted") || strstr(name, "file_buffer.csv")) {
 		return 0;
 	}
 	else {
