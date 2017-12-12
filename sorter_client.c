@@ -104,61 +104,25 @@ int main(int argc, char** argv) {
     printf("Thread Count: [%d]\n", threadCount);
 
     printf("DONE SENDING SORT REQUESTS\n");
-
- //    int sentconf;
- //    int bytesReceived = 0;
- //    char recvBuff[1024];
- //    memset(recvBuff, '0', sizeof(recvBuff));
- //    char mesg[8];
- //    char *dump = "DUMP-";
- //    int columnNumber = switchVariable(columnType);
- //    int dataType = 0;
- //    char columnNumberString[1];
- //    char dataTypeString[1];
- //    char *dash = "-";
- //    // itoa(columnNumber,columnNumberString,10);
- //    // itoa(dataType,dataTypeString,10);
- //    snprintf(columnNumberString, sizeof(char), "%d", columnNumber);
- //    snprintf(dataTypeString, sizeof(char), "%d", dataType);
- //    strcpy(mesg, dump);
- //    strcat(mesg,columnNumberString);
- //    strcat(mesg,dash);
- //    strcat(mesg,dataTypeString);
- //    sentconf = send(sockfd, mesg, strlen(mesg), 0);
-
- //   	 /* Create file where data will be stored */
- //    FILE *fp;
- //    char* outputName = (char*)malloc(strlen(attachSorted()) + 1);
- //    strcpy(outputName, attachSorted());
- //    char* fName = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
- //    strcpy(fName, attachName(outputDirectory, outputName));
- //    read(sockfd, fName, 256);
-	// //strcat(fname,"AK");
- //    printf("File Name: %s\n", fName);
- //    printf("Receiving file...");
- //    fp = fopen(fName, "ab"); 
- //    if(NULL == fp)
- //    {
- //    	outputErrorMessage("error opening file");
- //    }
- //    long double sz=1;
- //    /* Receive data in chunks of 256 bytes */
- //    while((bytesReceived = read(sockfd, recvBuff, 1024)) > 0)
- //    { 
- //    	sz++;
- //    	gotoxy(0,4);
- //    	printf("Received: %Lf Mb",(sz/1024));
- //    	fflush(stdout);
- //        // recvBuff[n] = 0;
- //    	fwrite(recvBuff, 1, bytesReceived, fp);
- //        // printf("%s \n", recvBuff);
- //    }
-
- //    if(bytesReceived < 0)
- //    {
- //    	printf("\n Read Error \n");
- //    }
- //    printf("\nFile OK....Completed\n");
+ 
+    // Variables to send the request and recieve it
+    char buffer[BUFSIZ];
+    char colNum[3];
+    
+    // Send the dump request
+    strcat(buffer, "DUMP-");
+    sprintf(colNum, "%d", switchValue);
+    strcat(buffer, colNum);
+ 
+ 
+    // Recieve the file size
+    
+    // Revieve the file
+    
+    // Format the name of the file
+    
+    // Store output in specified dir
+ 
 
     close(sockfd);
     return 0;
