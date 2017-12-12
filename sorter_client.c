@@ -63,26 +63,26 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Directory    : [%s]\n", directoryName);
     fprintf(stderr, "Output       : [%s]\n\n", outputDirectory);
 
-    struct sockaddr_in serv_addr;
-
     /* Create a socket first */
-    if((sockfd = socket(AF_INET, SOCK_STREAM, 0))< 0)
-    {
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     	outputErrorMessage("could not create socket");
     }
 
-    /* Initialize sockaddr_in data structure */
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(atoi(portNumber)); // port
-    serv_addr.sin_addr.s_addr = inet_addr(hostName);
+    struct addrinfo hints, *result;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((sockfd = getaddrinfo(hostName, portNumber, &hints, &result)) != 0) {
+    	outputErrorMessage("error with making sock");
+    }
 
     /* Attempt a connection */
-    if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))<0)
-    {
+    if(connect(sockfd, result->ai_addr, result->ai_addrlen) == -1) {
     	outputErrorMessage("connect failed");
     }
 
-    printf("Connected to ip: %s : %d\n",inet_ntoa(serv_addr.sin_addr),ntohs(serv_addr.sin_port));
+    // printf("Connected to ip: %s : %d\n",inet_ntoa(serv_addr.sin_addr),ntohs(serv_addr.sin_port));
 
     threadSize = threadSize + 1;
     tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
