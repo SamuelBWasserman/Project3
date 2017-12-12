@@ -30,7 +30,7 @@ int switchVariable(const char* columnType);
 int checkCSV(char *filename);
 int checkRepeat(char *name);
 void* traverseDirectory(void* arg);
-void* sendRequest(void* arg);
+void sendRequest(char*);
 void gotoxy(int x, int y);
 
 #endif

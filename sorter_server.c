@@ -46,7 +46,7 @@ int main(int argc, char **(argv)){
     socklen_t addr_size;
 
     // Create the socket w/ TCP connection
-    setupSocket = socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    setupSocket = socket(PF_INET, SOCK_STREAM, 0);
 
     // Configure Server Settingss
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -77,13 +77,13 @@ int main(int argc, char **(argv)){
     printf("Listening on FD %d and port %d\n", setupSocket, ntohs(result_addr->sin_port));
 
     // Create client TID array
-    pthread_t *client_tids = (pthread_t *)malloc(sizeof(pthread_t));
+    // pthread_t *client_tids = (pthread_t *)malloc(sizeof(pthread_t));
     int max_tid = 0;
     
     // Create new client sockets and spawn new threads
     printf("Waiting for connections...\n");
     while(1)
-    while((clientSocket = accept(setupSocket, NULL, NULL)) != -1){ // TODO: Needs to handle signal kill
+    while((clientSocket = accept(setupSocket, NULL, NULL)) != -1){
         // Print the IP address of the client
         struct sockaddr_in addr;
         socklen_t addr_size = sizeof(struct sockaddr_in);
@@ -97,17 +97,17 @@ int main(int argc, char **(argv)){
         // Spawn a new thread
         pthread_t client_threadid;
         pthread_create(&client_threadid, NULL, handle_connection, (void *)clientArgs);
-
+        pthread_join(client_threadid, NULL);
         // Add TID to TID array
-        client_tids[max_tid] = client_threadid;
-        client_tids = (pthread_t *)realloc(client_tids, sizeof(client_tids) + sizeof(pthread_t));
+        // client_tids[max_tid] = client_threadid;
+        //client_tids = (pthread_t *)realloc(client_tids, sizeof(client_tids) + sizeof(pthread_t));
         max_tid++; 
     }
     
     // Wait for all child threads to complete
     int i;
     for(i=0;i<max_tid;i++){
-        pthread_join((pthread_t)client_tids[i], NULL);
+        //pthread_join((pthread_t)client_tids[i], NULL);
     }
     
     return 0;
@@ -119,12 +119,14 @@ void *handle_connection(void *arg){
     int client_sock = c_args -> client_sock;
     // Create global variables to store CSV data
     data_row **big_db;
+    big_db = (data_row**)malloc(sizeof(data_row)); // 1 data row
     int big_lc = 0;
     // Get data from the client
     char buffer[BUFSIZ];
     int len;
     // TODO Optimization: Let's spawn a thread to handle this while loop.
-    while((len = read(client_sock, buffer, sizeof(buffer) - 1)) >= 0){
+    while((len = read(client_sock, buffer, sizeof(buffer) - 1)) > 0){
+        printf("RECIEVED REQUEST\n");
         buffer[len] = '\0';
 
         // Get the request string
@@ -192,40 +194,28 @@ void *handle_connection(void *arg){
             int file_size;
             recv(client_sock, buffer, BUFSIZ, 0);
             file_size = atoi(buffer);
-	    memset(buffer,0,sizeof(buffer));
+	        memset(buffer,0,sizeof(buffer));
             printf("File Size: %d\n", file_size);
-	    if(file_size == 0)
-		pthread_exit(0);
-	    int remaining_data = 0;
+	        int remaining_data = 0;
             char buf[PATH_MAX];
-	    FILE *csv_file = fopen("file_buffer.csv", "ab+");
-	    if (csv_file == NULL)
-            {
+	        FILE *csv_file = fopen("file_buffer.csv", "ab+");
+	        if (csv_file == NULL) {
                 fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
-
                 exit(EXIT_FAILURE);
             }
             ssize_t len;
             remaining_data = file_size;
-	    printf("GETTING FILE FROM CLIENT\n");
+	        printf("GETTING FILE FROM CLIENT\n");
             while ((remaining_data > 0) && ((len = recv(client_sock, buffer, BUFSIZ, 0)) > 0))
             {	
-		printf("%s\n", buffer);
                 fwrite(buffer, sizeof(char), len, csv_file);
-		memset(buffer,0,sizeof(buffer));
+		        memset(buffer,0,sizeof(buffer));
                 remaining_data -= len;
             }
-       
-  	   //   fclose(csv_file);
-	   char line[600];
-           printf("Printing first line \n");
-	   fgets(line, 600, csv_file);
- 	   printf("%s\n", line);
-	   fclose(csv_file);
-	   csv_file = freopen("file_buffer.csv", "r", csv_file);
-	   process_csv(csv_file, big_db, big_lc);
-	   // Remove file that was created, after data is stored in memory
-           
+           memset(buffer,0,sizeof(buffer));
+	       process_csv(csv_file, big_db, big_lc);
+	       // Remove file that was created, after data is stored in memory
+           fclose(csv_file);
            remove("file_buffer.csv");
         }
     }
@@ -238,7 +228,7 @@ void *handle_connection(void *arg){
 /* in the heap for later sorting */
 void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
   /* Processes the CSV file */
-  printf("Processing CSV\n");  
+  printf("Processing CSV\n"); 
   // Define path variables
   char curr_dir[_POSIX_PATH_MAX] = {0};
   char *path = NULL;
@@ -246,19 +236,13 @@ void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
      printf("NULL FILE exiting\n");
      exit(1);
   }
-  // printf("Processing CSV\n");
-  // printf("%s\n",file_path);
   char delims[] = ",";
-  // data_row **db = (data_row**)malloc(sizeof(data_row)); // 1 data row
   big_db[big_lc] = (data_row*)malloc(sizeof(data_row)); // 1 data row
   char line[600]; // one line from the file
   int line_counter = -1; // count what line we're on to keep track of the struct array
   int word_counter = 0; // keep track of what word were on for assignment in the struct
   int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
-
   while(fgets(line, 600, csv_file) != NULL){
-  	//pthread_mutex_lock(&MUTEX);
-    printf("%s\n",line);
     int i;
     if(line_counter < 0){
       line_counter++;
@@ -267,7 +251,7 @@ void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
         strcpy(first_line,line);
       }
       if(!(is_csv_correct(line))){
-        printf("Incorrect CSV");
+        printf("Incorrect CSV\n");
         fflush(stdout);
         return;
       }
@@ -347,7 +331,7 @@ void process_csv(FILE *csv_file, data_row **big_db, int big_lc){
     big_db[big_lc] = (data_row*)malloc(sizeof(data_row));
     // pthread_mutex_unlock(&MUTEX);
   }
-   pthread_exit(0);
+   printf("Processing has finished\n");
 }
 
 void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *first_line) {

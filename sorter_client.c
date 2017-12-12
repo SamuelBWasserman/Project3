@@ -10,10 +10,9 @@ char *portNumber;
 pthread_t *tids;
 int threadCount = 0;
 int threadSize = 0;
-int sockfd = 0;
+int sockfd; // The global socket that will get used for the client
 // int total = 0;
 pthread_mutex_t socketLock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t socket2Lock = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char** argv) {
     if(argc != 7 && argc != 9 && argc != 11) { //Make sure input is valid.
@@ -79,21 +78,32 @@ int main(int argc, char** argv) {
     if(connect(sockfd, result->ai_addr, result->ai_addrlen) == -1) {
     	outputErrorMessage("connect failed");
     }
+    
+    // Print copnnected socket
+    struct sockaddr_in *result_addr = (struct sockaddr_in *)result->ai_addr;
+    printf("Connected to IP %d on socket %d\n", ntohs(result_addr->sin_port), sockfd);
 
-    // printf("Connected to ip: %s : %d\n",inet_ntoa(serv_addr.sin_addr),ntohs(serv_addr.sin_port));
-
-    threadSize = threadSize + 1;
-    tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
-    pthread_create(&tids[threadCount], NULL, traverseDirectory, directoryName);
+    // Create thread to search dir
+    // threadSize = threadSize + 1;
+    //tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
+    pthread_t tid;
+    pthread_create(&tid, NULL, traverseDirectory, directoryName);
+    pthread_join(tid, NULL);
     threadCount = threadCount + 1;
 
+
+    // TODO: Join the TIDs and make concurrent
+    /*
     int x;
     for (x = 0; x < threadSize; x++) {
     	fprintf(stderr, "%lu, ", (unsigned long)tids[x]);
     	pthread_join(tids[x], NULL);
     }
+    */
 
     printf("Thread Count: [%d]\n", threadCount);
+
+    printf("DONE SENDING SORT REQUESTS\n");
 
  //    int sentconf;
  //    int bytesReceived = 0;
@@ -151,21 +161,14 @@ int main(int argc, char** argv) {
  //    printf("\nFile OK....Completed\n");
 
     close(sockfd);
-
-    // pFirstNode = SortList(pFirstNode, switchValue, threadSize);
-    // outputData();
-    // fprintf(stdout, "\nTotal number of threads: %d\n", threadSize);
-
-    fprintf(stderr, "\n\nI RAM!\n\n");
-
     return 0;
 }
 
 void* traverseDirectory(void* arg) {
-	// fprintf(stderr, "%lu, ", (unsigned long)pthread_self());
+  // Get dir args
 	char* directoryName = (char*)malloc(strlen((char*) arg) + 1);
 	strcpy(directoryName, (char*) arg);
-	// printf("Directory Name: [%s]\n", directoryName);
+	printf("Directory Name: [%s]\n", directoryName);
 	DIR *dirStream;
 	struct dirent *dir;
 	dirStream = opendir(directoryName);
@@ -174,6 +177,7 @@ void* traverseDirectory(void* arg) {
 		outputErrorMessage("incorrect path");
 	}
 
+	// Read the directory stream
 	while ((dir = readdir(dirStream)) != NULL) {
 		char* newPath = (char*)malloc(strlen(directoryName)+strlen(dir->d_name)+ 3);
 		strcpy(newPath, attachName(directoryName, dir->d_name));
@@ -185,35 +189,22 @@ void* traverseDirectory(void* arg) {
 				continue;
 			}
 			else {
-			pthread_mutex_lock(&socketLock);
 			threadSize = threadSize + 1;
-			tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
-			pthread_create(&tids[threadCount], NULL, traverseDirectory, newPath);
+			// tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
+			pthread_t tid;
+			pthread_create(&tid, NULL, traverseDirectory, newPath);
+			pthread_join(tid, NULL);
 			threadCount = threadCount + 1;
-			pthread_mutex_unlock(&socketLock);
 			}
-			//fprintf(stderr, "A thread was created!\n");
 		}
 		else if (strstr(dir->d_name, ".csv") && dir->d_type == 8) {
 			if (checkRepeat(dir->d_name) == 1) {
 				if (checkCSV(newPath) == 1) {
 					printf("CSV Found: [%s]\n", newPath);
-					pthread_mutex_lock(&socket2Lock);
-					threadSize = threadSize + 1; // THIS IS UNECESSARY CODE WTF YOU ASSHOLES
-					tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
-					pthread_create(&tids[threadCount], NULL, sendRequest, newPath);
-					threadCount = threadCount + 1;
-					pthread_mutex_unlock(&socket2Lock);
-					// fprintf(stderr, "A thread was created!\n");
-
-					//Get a lock and call the sendRequest function
-					//LOCK HERE
-					// pthread_mutex_lock(&socketLock);
-					// printf("LOCKED SOCKET...SENDING FILE %s NOW\n", newPath);
-					// sendRequest(newPath);
-					// printf("DONE SENDING FILE %s\n", newPath);
-					// pthread_mutex_unlock(&socketLock);
-					//UNLOCK HERE
+					// Get a lock and call the sendRequest function
+					pthread_mutex_lock(&socketLock);
+					sendRequest(newPath);
+					pthread_mutex_unlock(&socketLock);
 				}
 				else {
 					outputErrorMessage("invalid csv file");
@@ -231,10 +222,7 @@ void outputErrorMessage(char *error) { // Standard output error function
 	exit(0);
 }
 
-void* sendRequest(void* arg) {
-  	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
-  	strcpy(fileName, (char*) arg);
-
+void sendRequest(char *fileName) {
     ssize_t len;
     int sent_bytes = 0;
     off_t offset;
@@ -251,7 +239,7 @@ void* sendRequest(void* arg) {
     sprintf(file_size, "%d", file_stat.st_size);
     // Sending file size
     len = send(sockfd, file_size, sizeof(file_size),0);
-    printf("FILE: %s\n", fileName);
+    printf("SENDING FILE: %s\n", fileName);
     //printf("SENDING THE FILE YO\n");
     while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, fileno(csv), &offset, BUFSIZ)) > 0))
     {
@@ -261,126 +249,7 @@ void* sendRequest(void* arg) {
     printf("DONE WITH FILE: %s\n", fileName);
 
     fclose(csv);
-    pthread_exit(0);
 }
-
-	// if (fstat(fd, &file_stat) < 0)
-	// {
-	// 	outputErrorMessage("error fstat");
-	// }
-
-	// fprintf(stdout, "File Size: \n%lld bytes\n", file_stat.st_size);
-
-	// sock_len = sizeof(struct sockaddr_in);
- //        /* Accepting incoming peers */
-	// // peer_socket = accept(server_socket, (struct sockaddr *)&peer_addr, &sock_len);
-	// // if (peer_socket == -1)
-	// // {
-	// // 	fprintf(stderr, "Error on accept --> %s", strerror(errno));
-
-	// // 	exit(EXIT_FAILURE);
-	// // }
-	// // fprintf(stdout, "Accept peer --> %s\n", inet_ntoa(peer_addr.sin_addr));
-
-	// sprintf(file_size, "%lld", file_stat.st_size);
-
- //        /* Sending file size */
-	// len = send(sockfd, file_size, sizeof(file_size), 0);
-	// if (len < 0)
-	// {
-	// 	outputErrorMessage("error on sending greetings");
-	// }
-
-	// fprintf(stdout, "Server sent %d bytes for the size\n", len);
-
-	// offset = 0;
-	// remain_data = file_stat.st_size;
- //        /* Sending file data */
-	// while (((sent_bytes = sendfile(sockfd, fd, &offset, BUFSIZ)) > 0) && (remain_data > 0))
-	// {
-	// 	fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
-	// 	remain_data -= sent_bytes;
-	// 	fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
-	// }
-
-// void* sendRequest(void* arg) {
-// 	char* fileName = (char*)malloc(strlen((char*) arg) + 1);
-// 	strcpy(fileName, (char*) arg);
-
-// 	FILE * file_to_send;
-// 	int ch;
-// 	char toSEND[1];
-// 	char remoteFILE[4096];
-// 	int count1=1,count2=1, percent;
-
-// 	file_to_send = fopen (fileName,"r");
-// 	if(!file_to_send) {
-// 		close(sockfd);
-// 		outputErrorMessage("error opening file");
-// 	} else {
-// 		long fileSIZE;
-// 		fseek (file_to_send, 0, SEEK_END); fileSIZE =ftell (file_to_send);
-// 		rewind(file_to_send);
-
-// 		sprintf(remoteFILE,"FBEGIN:%s:%ld\r\n", fileName, fileSIZE);
-// 		send(sockfd, remoteFILE, sizeof(remoteFILE), 0);
-
-// 		percent = fileSIZE / 100;
-// 		while((ch=getc(file_to_send))!=EOF){
-// 			toSEND[0] = ch;
-// 			send(sockfd, toSEND, 1, 0);
-// 			if( count1 == count2 ) {
-// 				printf("33[0;0H");
-// 				printf( "\33[2J");
-// 				printf("Filename: %s\n", fileName);
-// 				printf("Filesize: %ld Kb\n", fileSIZE / 1024);
-// 				printf("Percent : %d%% ( %d Kb)\n",count1 / percent ,count1 / 1024);
-// 				count1+=percent;
-// 			}
-// 			count2++;
-
-// 		}
-// 	}
-// 	fclose(file_to_send);
-// 	close(sockfd);
-// 	pthread_exit(0);
-// }
-
-// void outputData() { // output data to output csv file.
-// 	node *pData = pFirstNode;
-// 	mkdir(outputDirectory, 0700);
-
-// 	char* outputName = (char*)malloc(strlen(attachSorted()) + 1);
-// 	strcpy(outputName, attachSorted());
-
-// 	char* newPath = (char*)malloc(strlen(outputDirectory)+strlen(outputName)+ 3);
-// 	strcpy(newPath, attachName(outputDirectory, outputName));
-
-// 	FILE *fileO = fopen(newPath, "w");
-
-// 	if (fileO != NULL) {
-// 		fprintf(fileO, "%s", firstLine);
-
-// 		while(pData != NULL) {
-// 			fprintf(fileO, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"
-// 				, pData->color, pData->director_name, pData->num_critic_for_reviews, pData->duration
-// 				, pData->director_facebook_likes, pData->actor_3_facebook_likes, pData->actor_2_name
-// 				, pData->actor_1_facebook_likes, pData->gross, pData->genres, pData->actor_1_name
-// 				, pData->movie_title, pData->num_voted_users, pData->cast_total_facebook_likes
-// 				, pData->actor_3_name, pData->facenumber_in_poster, pData->plot_keywords, pData->movie_imdb_link
-// 				, pData->num_user_for_reviews, pData->language, pData->country, pData->content_rating, pData->budget
-// 				, pData->title_year, pData->actor_2_facebook_likes, pData->imdb_score, pData->aspect_ratio
-// 				, pData->movie_facebook_likes);
-
-// 			pData = pData->next;
-// 		}
-// 	}
-// 	else {
-// 		outputErrorMessage("file open error");
-// 	}
-
-// 	fclose(fileO);
-// }
 
 char* attachName(const char* directoryName, const char* name) { 
 	char* result;
