@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
     	outputErrorMessage("could not create socket");
     }
 
+    int s;
     struct addrinfo hints, *result;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
