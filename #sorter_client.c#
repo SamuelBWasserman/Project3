@@ -1,4 +1,4 @@
-#include "sorter_client.h"
+1;95;0c#include "sorter_client.h"
 
 #define BUFFER_SIZE 2048 // large enough buffer size
 
@@ -64,7 +64,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Output       : [%s]\n\n", outputDirectory);
 
     /* Create a socket first */
-    int s;
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     	outputErrorMessage("could not create socket");
     }
@@ -74,7 +73,7 @@ int main(int argc, char** argv) {
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    if ((s = getaddrinfo(hostName, portNumber, &hints, &result)) != 0) {
+    if ((sockfd = getaddrinfo(hostName, portNumber, &hints, &result)) != 0) {
     	outputErrorMessage("error with making sock");
     }
 

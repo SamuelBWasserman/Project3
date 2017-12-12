@@ -214,7 +214,7 @@ void *handle_connection(void *arg){
             process_csv(csv_file, big_db, big_lc);
             // Remove file that was created, after data is stored in memory
             fclose(csv_file);
-            // remove(ptr);
+            remove("file_buffer.csv");
         }
     }
     close(client_sock);
