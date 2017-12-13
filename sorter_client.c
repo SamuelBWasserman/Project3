@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     strcat(buffer, colNum);
     strcat(buffer, "-");
     char dataNum[2];
-    sprintf(dataNum, "%d", determine_data_type(switchValue);
+    sprintf(dataNum, "%d", determine_data_type(switchValue));
     strcat(buffer, dataNum);
     printf("SENDING DUMP REQUEST\n");
     printf("PRE REQUEST BUFFER: [%s]\n", buffer);
