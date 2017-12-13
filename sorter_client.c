@@ -119,8 +119,8 @@ int main(int argc, char** argv) {
 	len = send(sockfd, buffer, sizeof(buffer),0);
  
     // Get the sorted file from the server
-	int file_size;
-    recv(client_sock, buffer, BUFSIZ, 0);
+    int file_size;
+    recv(sockfd, buffer, BUFSIZ, 0);
     file_size = atoi(buffer);
     memset(buffer,0,sizeof(buffer));
     printf("File Size: %d\n", file_size);
@@ -129,12 +129,12 @@ int main(int argc, char** argv) {
 	// Make CSV file to retrieve
 	FILE *csv_file = fopen(attachSorted(), "ab+");
 	if (csv_file == NULL) {
-        fprintf(stderr, "Failed to open sorted file --> %s\n", strerror(errno));
+        printf("Failed to open sorted file.\n");
         exit(EXIT_FAILURE);
     }
     remaining_data = file_size;
 	printf("GETTING FILE FROM SERVER\n");
-    while ((remaining_data > 0) && ((len = recv(client_sock, buffer, BUFSIZ, 0)) > 0)){	
+    while ((remaining_data > 0) && ((len = recv(sockfd, buffer, BUFSIZ, 0)) > 0)){	
     	fwrite(buffer, sizeof(char), len, csv_file);
 		memset(buffer,0,sizeof(buffer));
         remaining_data -= len;
