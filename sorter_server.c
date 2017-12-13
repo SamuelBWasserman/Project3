@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/sendfile.h>
 // Stores the first line of the CSV. (Represents the column headers)
 char *first_line;
@@ -120,18 +121,20 @@ void *handle_connection(void *arg){
     // Create global variables to store CSV data
     data_row **big_db;
     big_db = (data_row**)malloc(sizeof(data_row)); // 1 data row
+    printf("BIG DB HAS BEEN INITIALIZED TO SIZE: %d\n", sizeof(data_row));
     int big_lc = 0;
     // Get data from the client
     char buffer[BUFSIZ];
+    char req[5];
     int len;
     // TODO Optimization: Let's spawn a thread to handle this while loop.
-    while((len = read(client_sock, buffer, sizeof(buffer) - 1)) > 0){
-        printf("RECIEVED REQUEST\n");
+    while((len = read(client_sock, req, sizeof(req))) > 0){
+      printf("RECIEVED REQUEST\n");
         buffer[len] = '\0';
 
         // Get the request string
         char request[5];
-        strncpy(request, buffer, 4);
+        strncpy(request, req, 4);
         request[4] = '\0';
 	printf("REQUEST: %s\n", request);
         // Check to see the request type
@@ -188,10 +191,13 @@ void *handle_connection(void *arg){
             // Disconnects for specific client by exiting thread
             close(client_sock);
             pthread_exit(0);
-        } else { // This is Sort and a file descriptor is provided
+        }
+	else if(strcmp(request, "SORT") == 0) { // This is Sort and a file descriptor is provided
             printf("Adding to Mega DB...\n");
 
             // Receive the file size
+	    int fsize_len = 0;
+	    fsize_len = read(client_sock, buffer, 256);
             int file_size = atoi(buffer);
 	    int remaining_data = 0;	    
 	    int len = 0;
@@ -201,52 +207,50 @@ void *handle_connection(void *arg){
             printf("File Size: %d\n", file_size);
 
 	    // Open the CSV file in write mode
-	    FILE *csv_file = fopen("file_buffer.csv", "w");
+	    /* FILE *csv_file = fopen("file_buffer.csv", "w");
 	    if (csv_file == NULL) {
                 fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
                 exit(EXIT_FAILURE);
             }
-
+	    */
 	    // Clear buffer and print some shit
-	    memset(buffer,0,sizeof(buffer));
+	    memset(buffer,0,BUFSIZ);
 	    printf("GETTING FILE FROM CLIENT\n");
 	    printf("Remaining Data: %d\n", remaining_data);
-
+	    
+	    // Create file descriptor to recieve file
+	    int fd = open("file_buffer.csv", O_RDWR | O_APPEND | O_CREAT, 0644);
+	    
 	    // Read the data from the socket
             while ((remaining_data > 0) && ((len = read(client_sock, buffer, BUFSIZ)) > 0))
             { 
-	      if(len == 1){
-		printf("Received only one byte...skipping\n");
-		continue;
-	      }
-	      else if(len > remaining_data){
-		printf("Bytes received(%d) is bigger than remaining data(%d)\n", len, remaining_data);
-		printf("BUFFER: %s\n", buffer);
-		fwrite(buffer, sizeof(char), remaining_data, csv_file);
-		break;
-	      }
 	      //printf("BUFFER: [%s]\n", buffer);
-	      printf("Bytes recieved from server: [%d]\n", len);
-              fwrite(buffer, sizeof(char), len, csv_file);
-	      //memset(buffer,0,sizeof(buffer));
+	      //printf("Bytes recieved from server: [%d]\n", len);
+              write(fd, buffer, len);
+	      memset(buffer,0,BUFSIZ);
               remaining_data -= len;
             }
 
 	    // Close the CSV
 	    printf("Closing CSV\n");
-	    fclose(csv_file);
-            memset(buffer,0,sizeof(buffer)); 
+	    close(fd);
+
+	    // Clear the memory for the next buffer and call process CSV 
+	    memset(buffer,0,sizeof(buffer));
 	    big_lc = process_csv(big_db, big_lc);
+
 	    // Remove file that was created, after data is stored in memory
-            remove("file_buffer.csv");
+	    remove("file_buffer.csv");
 	    printf("Processing is done now\n");
-	    char *response = "Recieved file";                                                                      
-            len = write(client_sock, response, strlen(response)); 
+
+	    // Send client response 
+	    char *response = "Recieved file";             
+            len = write(client_sock, response, strlen(response) + 1); 
         }
+	else {
+	  printf("Sort or Send request not received\n");
+	}
     }
-    //printf("CLOSING THE SOCKET AND EXITING\n");
-    //close(client_sock);
-    //pthread_exit(0);
 }
 
 
@@ -256,7 +260,9 @@ int process_csv(data_row **big_db, int big_lc){
   /* Processes the CSV file */
   printf("Processing CSV\n");
 
+  // Open the CSV for reading
   FILE *csv_file = fopen("file_buffer.csv", "r"); 
+
   // Define path variables
   char curr_dir[_POSIX_PATH_MAX] = {0};
   char *path = NULL;
@@ -267,12 +273,15 @@ int process_csv(data_row **big_db, int big_lc){
   char delims[] = ",";
   big_db[big_lc] = (data_row*)malloc(sizeof(data_row)); // 1 data row
   char line[600]; // one line from the file
+  memset(line,0,600);
   int line_counter = -1; // count what line we're on to keep track of the struct array
   int word_counter = 0; // keep track of what word were on for assignment in the struct
   int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
 
+  printf("Getting line now\n");  
   while(fgets(line, 600, csv_file) != NULL){
-	int i;
+    printf("LINE: %s\n", line);
+    int i;
     if(line_counter < 0){
       line_counter++;
       if(first_line == NULL){
@@ -359,7 +368,8 @@ int process_csv(data_row **big_db, int big_lc){
     word_counter = 0;
     line_counter++;
     big_lc++;
-    big_db = (data_row**)realloc(big_db, (sizeof(data_row)*(big_lc+1)));
+    printf("BIG_LC AT %d and BIG_DB AT %d\n", big_lc, sizeof(*big_db));
+    big_db = (data_row**)realloc(big_db, (sizeof(data_row)*(big_lc)));
     big_db[big_lc] = (data_row*)malloc(sizeof(data_row));
     // pthread_mutex_unlock(&MUTEX);
   }

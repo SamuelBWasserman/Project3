@@ -202,7 +202,7 @@ void* traverseDirectory(void* arg) {
 					pthread_mutex_unlock(&socketLock);
 				}
 				else {
-					outputErrorMessage("invalid csv file");
+				  printf("invalid csv file %s\n", newPath);
 				}
 			}
 		}
@@ -218,40 +218,45 @@ void outputErrorMessage(char *error) { // Standard output error function
 }
 
 void sendRequest(char *fileName) {
+  /* Create the variables for sending request to server */
   ssize_t len;
-    int sent_bytes = 0;
-    off_t offset;
-    int remain_data;
-    char response[1000];
-    struct stat file_stat;
+  int sent_bytes = 0;
+  off_t offset;
+  int remain_data;
+  char *request = "SORT";
+  char response[14];
+  struct stat file_stat;
 
-    int csv = open(fileName, O_RDONLY);
+  // Open file descriptor
+  int csv = open(fileName, O_RDONLY);
 
-    fstat(csv, &file_stat);
+  // Gets file description
+  fstat(csv, &file_stat);
 
-    // Get file size
-    char file_size[BUFSIZ];
-    sprintf(file_size, "%d", file_stat.st_size);
+  // Get file size
+  char file_size[BUFSIZ];
+  sprintf(file_size, "%d", file_stat.st_size);
 
-    // Sending file size
-    len = send(sockfd, file_size, sizeof(file_size),0);
-    printf("SENDING FILE: %s\n", fileName);
-    offset = 0;
-    remain_data = file_stat.st_size;
-    while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, csv, &offset, BUFSIZ)) > 0))
-    {
-      printf("Sent %d bytes\n", sent_bytes);
-      remain_data -= sent_bytes;
-    }
+  // Sending SORT request
+  len = send(sockfd, request, strlen(request) + 1, 0);
 
-    printf("DONE WITH FILE: %s\n", fileName);
+  // Sending file size
+  len = send(sockfd, file_size, 256, 0);
+  printf("SENDING FILE: %s\n", fileName);
+  offset = 0;
+  remain_data = file_stat.st_size;
+  while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, csv, &offset, BUFSIZ)) > 0)){
+    printf("Sent %d bytes\n", sent_bytes);
+    remain_data -= sent_bytes;
+  }
 
-    len = read(sockfd, response, 999);
-    response[len] = '\0';
-    if(strcmp(response, "Recieved file") != 0){
-      printf("Did not recieve response from server!\n");
-    }
-    close(csv);
+  printf("DONE WITH FILE: %s\n", fileName);
+
+  // Read the response from the server
+  len = read(sockfd, response, sizeof(response));
+  response[len] = '\0';
+
+  close(csv);
 }
 
 char* attachName(const char* directoryName, const char* name) { 
