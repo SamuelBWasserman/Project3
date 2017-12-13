@@ -218,17 +218,16 @@ void outputErrorMessage(char *error) { // Standard output error function
 }
 
 void sendRequest(char *fileName) {
-    ssize_t len;
+  ssize_t len;
     int sent_bytes = 0;
     off_t offset;
     int remain_data;
     char response[1000];
-
-    FILE *csv = fopen(fileName, "r");
     struct stat file_stat;
-    fstat(fileno(csv), &file_stat);
-    offset = 0;
-    remain_data = file_stat.st_size;
+
+    int csv = open(fileName, O_RDONLY);
+
+    fstat(csv, &file_stat);
 
     // Get file size
     char file_size[BUFSIZ];
@@ -237,7 +236,9 @@ void sendRequest(char *fileName) {
     // Sending file size
     len = send(sockfd, file_size, sizeof(file_size),0);
     printf("SENDING FILE: %s\n", fileName);
-    while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, fileno(csv), &offset, BUFSIZ)) > 0))
+    offset = 0;
+    remain_data = file_stat.st_size;
+    while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, csv, &offset, BUFSIZ)) > 0))
     {
       printf("Sent %d bytes\n", sent_bytes);
       remain_data -= sent_bytes;
@@ -250,7 +251,7 @@ void sendRequest(char *fileName) {
     if(strcmp(response, "Recieved file") != 0){
       printf("Did not recieve response from server!\n");
     }
-    fclose(csv);
+    close(csv);
 }
 
 char* attachName(const char* directoryName, const char* name) { 

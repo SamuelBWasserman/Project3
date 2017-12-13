@@ -213,6 +213,7 @@ void *handle_connection(void *arg){
 	    printf("Remaining Data: %d\n", remaining_data);
 
 	    // Read the data from the socket
+
             while ((remaining_data > 0) && ((len = read(client_sock, buffer, BUFSIZ)) > 0))
             { 
 	      if(len == 1){
