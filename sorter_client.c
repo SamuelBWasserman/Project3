@@ -115,7 +115,9 @@ int main(int argc, char** argv) {
     sprintf(colNum, "%d", switchValue);
     strcat(buffer, colNum);
     strcat(buffer, "-");
-    strcat(buffer, columnType);
+    char dataNum[2];
+    sprintf(dataNum, "%d", determine_data_type(switchValue);
+    strcat(buffer, dataNum);
     printf("SENDING DUMP REQUEST\n");
     printf("PRE REQUEST BUFFER: [%s]\n", buffer);
     len = write(sockfd, buffer, sizeof(buffer));
@@ -394,4 +396,22 @@ int checkRepeat(char *name) {
 void gotoxy(int x, int y)
 {
 	printf("%c[%d;%df",0x1B,y,x);
+}
+
+int determine_data_type(int column_to_sort) {
+  int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
+  // Call merge sort with db and column_to_sort
+  if (column_to_sort == 2 || column_to_sort == 4 || column_to_sort == 5 ||
+      column_to_sort == 7 || column_to_sort == 12 || column_to_sort == 13 ||
+      column_to_sort == 15 || column_to_sort == 18 || column_to_sort == 23 ||
+      column_to_sort == 24 || column_to_sort == 27) {
+    type_flag = 1;
+  } else if (column_to_sort == 3 || column_to_sort == 8 ||
+             column_to_sort == 22 || column_to_sort == 25 ||
+             column_to_sort == 26) {
+    type_flag = 2;
+  } else {
+    type_flag = 0;
+  }
+  return type_flag;
 }

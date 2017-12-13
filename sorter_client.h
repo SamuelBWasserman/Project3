@@ -32,5 +32,6 @@ int checkRepeat(char *name);
 void* traverseDirectory(void* arg);
 void sendRequest(char*);
 void gotoxy(int x, int y);
+int determine_data_type(int column_to_sort);
 
 #endif
