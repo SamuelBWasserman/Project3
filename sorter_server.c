@@ -175,7 +175,7 @@ void *handle_connection(void *arg){
             len = send(client_sock, file_size, sizeof(file_size),0);
             
             /* Sending file data */
-            while ((remain_data > 0) && ((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0))
+            while (((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
             {
                 remain_data -= sent_bytes;
             }
@@ -204,15 +204,23 @@ void *handle_connection(void *arg){
             }
             ssize_t len;
             remaining_data = file_size;
-	    //memset(buffer,0,sizeof(buffer));
+	    memset(buffer,0,sizeof(buffer));
 	    printf("GETTING FILE FROM CLIENT\n");
 	    printf("Remaining Data: %d\n", remaining_data);
+
             while ((remaining_data > 0) && ((len = read(client_sock, buffer, BUFSIZ)) > 0))
             {	
+	      if(len == 1){
+		printf("ONE BYTE BUFF: [%s]\n", buffer);
+		continue;
+              }
+	      printf("BUFFER: [%s]\n", buffer);
+	      printf("Bytes recieved from server: [%d]\n", len);
               fwrite(buffer, sizeof(char), len, csv_file);
 	      //memset(buffer,0,sizeof(buffer));
               remaining_data -= len;
             }
+	    printf("Closing CSV\n");
 	    fclose(csv_file);
             memset(buffer,0,sizeof(buffer)); 
 	    big_lc = process_csv(big_db, big_lc);
@@ -249,7 +257,7 @@ int process_csv(data_row **big_db, int big_lc){
   int line_counter = -1; // count what line we're on to keep track of the struct array
   int word_counter = 0; // keep track of what word were on for assignment in the struct
   int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
-  fgets(line, 600, csv_file); //Skip blank line
+
   while(fgets(line, 600, csv_file) != NULL){
 	int i;
     if(line_counter < 0){
@@ -260,8 +268,8 @@ int process_csv(data_row **big_db, int big_lc){
       }
       if(!(is_csv_correct(line))){
 	printf("%s\n", line);
-	//fgets(line, 600, csv_file);
-	//printf("%s\n", line);
+	fgets(line, 600, csv_file);
+	printf("%s\n", line);
         printf("Incorrect CSV\n");
         fflush(stdout);
         return;
