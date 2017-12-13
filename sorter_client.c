@@ -106,25 +106,33 @@ int main(int argc, char** argv) {
     printf("DONE SENDING SORT REQUESTS\n");
  
     // Variables to send the request and recieve it
+    char request[10];
     char buffer[BUFSIZ];
+    char fileSize[256];
     char colNum[3];
+    char dataNum[2];
     ssize_t len;
-    
+    memset(request, 0, sizeof(request));
     // Send the dump request
-    strcat(buffer, "DUMP-");
+    
+    strcat(request, "DUMP-");
     sprintf(colNum, "%d", switchValue);
-    strcat(buffer, colNum);
-    strcat(buffer, "-");
-    strcat(buffer, columnType);
+    sprintf(dataNum, "%d", determine_data_type(switchValue));
+    strcat(request, colNum);
+    strcat(request, "-");
+    strcat(request, dataNum);
     printf("SENDING DUMP REQUEST\n");
-    printf("PRE REQUEST BUFFER: [%s]\n", buffer);
-    len = write(sockfd, buffer, sizeof(buffer));
-    printf("DONE SENDING DUMP REQUEST WITH LENGTH %d\n", len);
-    printf("HERE IS THE FUCKING BUFFER YOU SLUT: [%s]\n", buffer);
+    //printf("PRE REQUEST BUFFER: [%s]\n", request);
+    while((len = send(sockfd, request, strlen(request), 0)) <= 0){
+      printf("Sent request with no length...retrying.\n");
+      continue;
+    }
+    //printf("DONE SENDING DUMP REQUEST WITH LENGTH %d\n", len);
+    //printf("HERE IS THE FUCKING BUFFER YOU SLUT: [%s]\n", request);
     // Get the sorted file from the server
     int file_size;
-    recv(sockfd, buffer, BUFSIZ, 0);
-    file_size = atoi(buffer);
+    read(sockfd, fileSize, BUFSIZ);
+    file_size = atoi(fileSize);
     memset(buffer,0,sizeof(buffer));
     printf("File Size: %d\n", file_size);
     int remaining_data = 0;
@@ -137,9 +145,9 @@ int main(int argc, char** argv) {
     }
     remaining_data = file_size;
 	printf("GETTING FILE FROM SERVER\n");
-    while ((remaining_data > 0) && ((len = recv(sockfd, buffer, BUFSIZ, 0)) > 0)){	
+    while ((remaining_data > 0) && ((len = read(sockfd, buffer, BUFSIZ)) > 0)){	
     	fwrite(buffer, sizeof(char), len, csv_file);
-		memset(buffer,0,sizeof(buffer));
+	memset(buffer,0,sizeof(buffer));
         remaining_data -= len;
     }
 
@@ -214,6 +222,7 @@ void sendRequest(char *fileName) {
     int sent_bytes = 0;
     off_t offset;
     int remain_data;
+    char response[1000];
 
     FILE *csv = fopen(fileName, "r");
     struct stat file_stat;
@@ -221,9 +230,8 @@ void sendRequest(char *fileName) {
     offset = 0;
     remain_data = file_stat.st_size;
 
-	// Get file size
-    fseek(csv, 0, SEEK_END);
-    char file_size[256];
+    // Get file size
+    char file_size[BUFSIZ];
     sprintf(file_size, "%d", file_stat.st_size);
 
     // Sending file size
@@ -236,6 +244,11 @@ void sendRequest(char *fileName) {
 
     printf("DONE WITH FILE: %s\n", fileName);
 
+    len = read(sockfd, response, 999);
+    response[len] = '\0';
+    if(strcmp(response, "Recieved file") != 0){
+      printf("Did not recieve response from server!\n");
+    }
     fclose(csv);
 }
 
@@ -395,3 +408,21 @@ void gotoxy(int x, int y)
 {
 	printf("%c[%d;%df",0x1B,y,x);
 }
+
+int determine_data_type(int column_to_sort){                                                                            
+  int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT                                                                        
+  // Call merge sort with db and column_to_sort                                                                         
+  if (column_to_sort == 2 || column_to_sort == 4 || column_to_sort == 5 ||                                              
+      column_to_sort == 7 || column_to_sort == 12 || column_to_sort == 13 ||                                            
+      column_to_sort == 15 || column_to_sort == 18 || column_to_sort == 23 ||                                           
+      column_to_sort == 24 || column_to_sort == 27) {                                                                   
+    type_flag = 1;                                                                                                      
+  } else if (column_to_sort == 3 || column_to_sort == 8 ||                                                              
+             column_to_sort == 22 || column_to_sort == 25 ||                                                            
+             column_to_sort == 26) {                                                                                    
+    type_flag = 2;                                                                                                      
+  } else {                                                                                                              
+    type_flag = 0;                                                                                                      
+  }                                                                                                                     
+  return type_flag;                                                                                                  
+} 

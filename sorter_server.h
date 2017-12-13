@@ -38,7 +38,7 @@ typedef struct client_args{
 // new sorted array of rows.
 int strallcmp(char const *a, char const *b);
 int column_to_sort(char **(argv));
-void process_csv(FILE *, data_row **, int);
+int process_csv(data_row **, int);
 char * strtok_blanks (char * str, char const * delims);
 int is_csv_correct(char *first_line);
 void print_to_csv(data_row**,int, char *, char *);
