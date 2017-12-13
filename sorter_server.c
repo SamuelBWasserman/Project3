@@ -133,7 +133,7 @@ void *handle_connection(void *arg){
         char request[5];
         strncpy(request, buffer, 4);
         request[4] = '\0';
-
+	printf("REQUEST: %s\n", request);
         // Check to see the request type
         if(strcmp(request, "DUMP") == 0){
             printf("Sorting then dumping...\n");

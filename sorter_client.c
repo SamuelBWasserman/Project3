@@ -108,23 +108,26 @@ int main(int argc, char** argv) {
     // Variables to send the request and recieve it
     char buffer[BUFSIZ];
     char colNum[3];
-	ssize_t len;
+    ssize_t len;
     
     // Send the dump request
     strcat(buffer, "DUMP-");
     sprintf(colNum, "%d", switchValue);
     strcat(buffer, colNum);
-	strcat(buffer, "-");
-	strcat(buffer, columnType);
-	len = send(sockfd, buffer, sizeof(buffer),0);
- 
+    strcat(buffer, "-");
+    strcat(buffer, columnType);
+    printf("SENDING DUMP REQUEST\n");
+    printf("PRE REQUEST BUFFER: [%s]\n", buffer);
+    len = write(sockfd, buffer, sizeof(buffer));
+    printf("DONE SENDING DUMP REQUEST WITH LENGTH %d\n", len);
+    printf("HERE IS THE FUCKING BUFFER YOU SLUT: [%s]\n", buffer);
     // Get the sorted file from the server
     int file_size;
     recv(sockfd, buffer, BUFSIZ, 0);
     file_size = atoi(buffer);
     memset(buffer,0,sizeof(buffer));
     printf("File Size: %d\n", file_size);
-	int remaining_data = 0;
+    int remaining_data = 0;
 
 	// Make CSV file to retrieve
 	FILE *csv_file = fopen(attachSorted(), "ab+");
