@@ -150,14 +150,8 @@ void *handle_connection(void *arg){
             char buf[PATH_MAX];
             // Sort the big DB
             sort(big_db, column_to_sort, data_flag,0,big_lc-1);
-        
-            char file_name[200];
-            // Creates a relative path /sorter_files/All-Files-Sorted-COLUMN.csv
-            strcpy(file_name,"/sorter_files/All-Files-Sorted");
-            strcpy(file_name,"-");
-            strcpy(file_name, column);
-            strcpy(file_name, ".csv");
-            char *file_path = realpath(file_name, buf);
+
+            char *file_name = "file_buffer.csv";
             
             int sent_bytes = 0;
             off_t offset;
@@ -165,8 +159,8 @@ void *handle_connection(void *arg){
             ssize_t len;
             
             // Creates a file from big_db
-            print_to_csv(big_db, big_lc, file_path, first_line);
-            FILE *csv = fopen(file_path, "r");
+            print_to_csv(big_db, big_lc, file_name, first_line);
+            FILE *csv = fopen("file_buffer.csv", "r");
             
             struct stat file_stat;
 	        fstat(fileno(csv), &file_stat);
@@ -180,14 +174,20 @@ void *handle_connection(void *arg){
              // Sending file size 
             len = send(client_sock, file_size, sizeof(file_size),0);
             
-           
             /* Sending file data */
             while ((remain_data > 0) && ((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0))
             {
                 remain_data -= sent_bytes;
             }
 
-        
+            fclose(csv);
+            remove("file_buffer.csv");
+
+            printf("DONE SENDING SORTED FILE...DISCONNECTING FROM CLIENT\n");
+            
+            // Disconnects for specific client by exiting thread
+            close(client_sock);
+            pthread_exit(0);
         } else { // This is Sort and a file descriptor is provided
             printf("Adding to Mega DB...\n");
             // Receive the file size, needed to receive the file
@@ -197,7 +197,7 @@ void *handle_connection(void *arg){
 	        memset(buffer,0,sizeof(buffer));
             printf("File Size: %d\n", file_size);
 	        int remaining_data = 0;
-            char buf[PATH_MAX];
+            //char buf[PATH_MAX];
 	        FILE *csv_file = fopen("file_buffer.csv", "ab+");
 	        if (csv_file == NULL) {
                 fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
@@ -338,7 +338,7 @@ void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *f
   char buffer[200];
   
   FILE *f;
-  f = fopen(file_path_name, "w");
+  f = fopen(file_path_name, "ab+");
   int i, j;
   for (i = -1; i < line_counter; i++) {
     //Print first line to csv
