@@ -154,7 +154,7 @@ void *handle_connection(void *arg){
             // Sort the big DB
 	        printf("Line Counter: %d\n", big_lc);
 	        printf("SORTING\n");
-            sort(&big_db, column_to_sort, data_flag,0,big_lc-1);
+            //sort(&big_db, column_to_sort, data_flag,0,big_lc-1);
 	        printf("DONE SORTING\n");
             char *file_name = "file_buffer.csv";
             
@@ -165,10 +165,10 @@ void *handle_connection(void *arg){
             // Creates a file from big_db
             printf("Printing %d lines to CSV \n", big_lc);
             print_to_csv(big_db, big_lc, file_name, first_line);
-            FILE *csv = fopen("file_buffer.csv", "r");
+            int sorted_fd = open("file_buffer.csv", O_RDONLY);
             
             struct stat file_stat;
-	        fstat(fileno(csv), &file_stat);
+	        fstat(sorted_fd, &file_stat);
 	        offset = 0;
             remain_data = file_stat.st_size;
             
@@ -176,21 +176,22 @@ void *handle_connection(void *arg){
             char file_size[256];
             sprintf(file_size, "%d", file_stat.st_size);
              // Sending file size 
-            len = send(client_sock, file_size, sizeof(file_size),0);
+            len = send(client_sock, file_size, 256,0);
             
             /* Sending file data */
-            while (((sent_bytes = sendfile(client_sock, fileno(csv), &offset, BUFSIZ)) > 0) && (remain_data > 0))
+            while ((remain_data > 0) && ((sent_bytes = sendfile(client_sock, sorted_fd, &offset, BUFSIZ)) > 0))
             {
+                printf("Sent %d bytes", sent_bytes);
                 remain_data -= sent_bytes;
             }
 
-            fclose(csv);
+            close(sorted_fd);
             remove("file_buffer.csv");
 
             printf("DONE SENDING SORTED FILE...DISCONNECTING FROM CLIENT\n");
 
             // Disconnects for specific client by exiting thread
-            close(client_sock);
+            //close(client_sock);
             pthread_exit(0);
         }
 	else if(strcmp(request, "SORT") == 0) { // This is Sort and a file descriptor is provided
@@ -218,8 +219,6 @@ void *handle_connection(void *arg){
 	    // Read the data from the socket
             while ((remaining_data > 0) && ((len = read(client_sock, buffer, BUFSIZ)) > 0))
             { 
-	      //printf("BUFFER: [%s]\n", buffer);
-	      //printf("Bytes recieved from server: [%d]\n", len);
               write(fd, buffer, len);
 	          memset(buffer,0,BUFSIZ);
               remaining_data -= len;

@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <sys/uio.h>
 #include <sys/sendfile.h>
+#include <errno.h>
 
 /* function prototypes */
 void outputErrorMessage(char *error);

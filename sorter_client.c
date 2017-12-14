@@ -122,8 +122,8 @@ int main(int argc, char** argv) {
     sprintf(dataNum, "%d", determine_data_type(switchValue));
     strcat(request, dataNum);
     printf("SENDING DUMP REQUEST\n");
-    //printf("PRE REQUEST BUFFER: [%s]\n", request);
-    while((len = send(sockfd, request, strlen(request), 0)) <= 0){
+    printf("PRE REQUEST BUFFER: [%s]\n", request);
+    while((len = send(sockfd, request, strlen(request), 0)) < 0){
       printf("Sent request with no length...retrying.\n");
       continue;
     }
@@ -131,27 +131,27 @@ int main(int argc, char** argv) {
     //printf("HERE IS THE FUCKING BUFFER YOU SLUT: [%s]\n", request);
     // Get the sorted file from the server
     int file_size;
-    read(sockfd, fileSize, BUFSIZ);
+    read(sockfd, fileSize, 256);
     file_size = atoi(fileSize);
-    memset(buffer,0,sizeof(buffer));
     printf("File Size: %d\n", file_size);
     int remaining_data = 0;
 
 	// Make CSV file to retrieve
-	FILE *csv_file = fopen(attachSorted(), "ab+");
-	if (csv_file == NULL) {
-        printf("Failed to open sorted file.\n");
-        exit(EXIT_FAILURE);
-    }
+	int sorted_fd = open(attachSorted(), O_RDWR | O_APPEND | O_CREAT, 0644);
     remaining_data = file_size;
 	printf("GETTING FILE FROM SERVER\n");
-    while ((remaining_data > 0) && ((len = read(sockfd, buffer, BUFSIZ)) > 0)){	
-    	fwrite(buffer, sizeof(char), len, csv_file);
-	memset(buffer,0,sizeof(buffer));
+	printf("REMAINING DATA: %d\n", remaining_data);
+    while ((remaining_data > 0) && ((len = read(sockfd, buffer, BUFSIZ)) > 0)){
+        printf("Got %d bytes", len);	
+    	write(sorted_fd,buffer,len);
+	    memset(buffer,0,sizeof(buffer));
         remaining_data -= len;
     }
+    
+    printf("Got %d bytes\n", len);
+    printf("Error: %s\n", strerror(errno));
 
-	fclose(csv_file);
+	close(sorted_fd);
  
 	printf("DONE GETTING SORTED FILE... CLOSING SOCKET\n");
 
