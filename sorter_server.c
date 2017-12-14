@@ -129,40 +129,40 @@ void *handle_connection(void *arg){
     int len;
     // TODO Optimization: Let's spawn a thread to handle this while loop.
     while((len = read(client_sock, req, 10)) > 0){
-      printf("RECIEVED REQUEST with len: %d\n", len);
+      // printf("RECIEVED REQUEST with len: %d\n", len);
         req[len] = '\0';
 
         // Get the request string
-        printf("REQUEST FULL: %s\n", req);
+        // printf("REQUEST FULL: %s\n", req);
         char request[5];
         strncpy(request, req, 4);
         request[4] = '\0';
 	printf("REQUEST: %s\n", request);
         // Check to see the request type
         if(strcmp(request, "DUMP") == 0){
-            printf("Sorting then dumping...\n");
+            // printf("Sorting then dumping...\n");
             // Get the remaining 2 args
             char column[3];
-            printf("buffer: %s\n",req);
+            // printf("buffer: %s\n",req);
             char *request_nums;
             request_nums = strtok(req, "-");
             request_nums = strtok(NULL, "-");
-            printf("Client request with 2: %s\n",request_nums);
+            // printf("Client request with 2: %s\n",request_nums);
             strcpy(column, request_nums);
             int column_to_sort = atoi(column);
             request_nums = strtok(NULL, "-");
             char data[3];
-            printf("Client request with 1: %s\n", request_nums);
+            // printf("Client request with 1: %s\n", request_nums);
             strcpy(data, request_nums);
             int data_flag = atoi(data);
             char buf[PATH_MAX];
             // Sort the big DB
-	        printf("Column to sort: %d\n", column_to_sort);
-	        printf("Data flag: %d\n", data_flag);
-	        printf("SORTING\n");
-          printf("BIG_LC: [%d]\n", big_lc);
+	        // printf("Column to sort: %d\n", column_to_sort);
+	        // printf("Data flag: %d\n", data_flag);
+	        printf("\n-sorting-\n");
+          printf("line count: [%d]\n", big_lc);
             sort(&big_db, column_to_sort,data_flag, 0,big_lc-1);
-	        printf("DONE SORTING\n");
+	        printf("-done sorting-\n");
             char *file_name = "file_buffer.csv";
             
             int sent_bytes = 0;
@@ -382,7 +382,6 @@ void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *f
   f = fopen(file_path_name, "w");
   int i, j;
   for (i = -1; i < line_counter; i++) {
-    printf("this is i:  [%d]\n", i);
     //Print first line to csv
     if(i == -1){
         fprintf(f,first_line);

@@ -11,7 +11,6 @@ pthread_t *tids;
 int threadCount = 0;
 int threadSize = 0;
 int sockfd; // The global socket that will get used for the client
-// int total = 0;
 pthread_mutex_t socketLock = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char** argv) {
@@ -84,26 +83,19 @@ int main(int argc, char** argv) {
     printf("Connected to PORT %d on socket %d\n", ntohs(result_addr->sin_port), sockfd);
 
     // Create thread to search dir
-    // threadSize = threadSize + 1;
-    //tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
-    pthread_t tid;
-    pthread_create(&tid, NULL, traverseDirectory, directoryName);
-    pthread_join(tid, NULL);
+    threadSize = threadSize + 1;
+    tids = (pthread_t*)malloc(sizeof(pthread_t) * threadSize);
+    pthread_create(&tids[threadCount], NULL, traverseDirectory, directoryName);
     threadCount = threadCount + 1;
 
-
-    // TODO: Join the TIDs and make concurrent
-    /*
     int x;
     for (x = 0; x < threadSize; x++) {
-    	fprintf(stderr, "%lu, ", (unsigned long)tids[x]);
+    	// fprintf(stderr, "\nThread Joined: [%lu]\n", (unsigned long)tids[x]);
     	pthread_join(tids[x], NULL);
     }
-    */
 
-    printf("Number of Directories Searched: [%d]\n", threadCount);
-
-    printf("DONE SENDING SORT REQUESTS\n");
+    printf("Number of Directories Searched: [%d]\n\n", threadCount);
+    // printf("Done sending sort requests.\n");
  
     // Variables to send the request and recieve it
     char request[10];
@@ -113,45 +105,45 @@ int main(int argc, char** argv) {
     char dataNum[2];
     ssize_t len;
     memset(request, 0, sizeof(request));
-    // Send the dump request
     
+    // Send the dump request
     strcat(request, "DUMP-");
     sprintf(colNum, "%d", switchValue);
     strcat(request, colNum);
     strcat(request, "-");
     sprintf(dataNum, "%d", determine_data_type(switchValue));
     strcat(request, dataNum);
-    printf("SENDING DUMP REQUEST\n");
-    printf("PRE REQUEST BUFFER: [%s]\n", request);
+    printf("-sending dump request-\n");
+    // printf("PRE REQUEST BUFFER: [%s]\n", request);
     len = send(sockfd, request, 10, 0);
-    printf("LENGTH OF DUMP REQUEST %d\n",len);
-    //printf("DONE SENDING DUMP REQUEST WITH LENGTH %d\n", len);
-    //printf("HERE IS THE FUCKING BUFFER YOU SLUT: [%s]\n", request);
+    // printf("LENGTH OF DUMP REQUEST %d\n",len);
+
     // Get the sorted file from the server
     int file_size;
     read(sockfd, fileSize, 256);
     file_size = atoi(fileSize);
-    printf("File Size: %d\n", file_size);
+    printf("File Size: [%d]\n", file_size);
     int remaining_data = 0;
 
 	// Make CSV file to retrieve
 	int sorted_fd = open(attachSorted(), O_RDWR | O_APPEND | O_CREAT, 0644);
     remaining_data = file_size;
-	printf("GETTING FILE FROM SERVER\n");
-	printf("REMAINING DATA: %d\n", remaining_data);
+	printf("-getting file from server-\n");
+	// printf("REMAINING DATA: %d\n", remaining_data);
     while ((remaining_data > 0) && ((len = read(sockfd, buffer, BUFSIZ)) > 0)){
-        printf("Got %d bytes", len);	
+        // printf("Got %d bytes", len);	
     	write(sorted_fd,buffer,len);
 	    memset(buffer,0,sizeof(buffer));
         remaining_data -= len;
     }
     
     //printf("Got %d bytes\n", len);
-    printf("Error: %s\n", strerror(errno));
+    printf("Remaining Data: [%d]\n", remaining_data);
+    printf("Status: [%s]\n", strerror(errno));
 
 	close(sorted_fd);
  
-	printf("DONE GETTING SORTED FILE... CLOSING SOCKET\n");
+	printf("-closing socket-\n");
 
     close(sockfd);
     return 0;
@@ -182,12 +174,10 @@ void* traverseDirectory(void* arg) {
 				continue;
 			}
 			else {
-			threadSize = threadSize + 1;
-			// tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
-			pthread_t tid;
-			pthread_create(&tid, NULL, traverseDirectory, newPath);
-			pthread_join(tid, NULL);
-			threadCount = threadCount + 1;
+				threadSize = threadSize + 1;
+				tids = (pthread_t*)realloc(tids, sizeof(pthread_t) * threadSize);
+				pthread_create(&tids[threadCount], NULL, traverseDirectory, newPath);
+				threadCount = threadCount + 1;
 			}
 		}
 		else if (strstr(dir->d_name, ".csv") && dir->d_type == 8) {
@@ -238,7 +228,7 @@ void sendRequest(char *fileName) {
   sprintf(file_size, "%d", file_stat.st_size);
 
   // Sending SORT request
-  printf("REQUES TO SEND TO SERVER: %s\n", request);
+  printf("Request sent to server: [%s] with [%s]\n", request, fileName);
   len = send(sockfd, request, 10, 0);
 
   // Sending file size
@@ -410,11 +400,6 @@ int checkRepeat(char *name) {
 	else {
 		return 1;
 	}
-}
-
-void gotoxy(int x, int y)
-{
-	printf("%c[%d;%df",0x1B,y,x);
 }
 
 int determine_data_type(int column_to_sort) {
