@@ -137,7 +137,7 @@ void *handle_connection(void *arg){
         char request[5];
         strncpy(request, req, 4);
         request[4] = '\0';
-	printf("REQUEST: %s\n", request);
+	     // printf("REQUEST: %s\n", request);
         // Check to see the request type
         if(strcmp(request, "DUMP") == 0){
             // printf("Sorting then dumping...\n");
@@ -159,10 +159,10 @@ void *handle_connection(void *arg){
             // Sort the big DB
 	        // printf("Column to sort: %d\n", column_to_sort);
 	        // printf("Data flag: %d\n", data_flag);
-	        printf("\n-sorting-\n");
-          printf("line count: [%d]\n", big_lc);
+	        //printf("\n-sorting-\n");
+            //printf("line count: [%d]\n", big_lc);
             sort(&big_db, column_to_sort,data_flag, 0,big_lc-1);
-	        printf("-done sorting-\n");
+	        // printf("Done sorting\n");
             char *file_name = "file_buffer.csv";
             
             int sent_bytes = 0;
@@ -195,7 +195,7 @@ void *handle_connection(void *arg){
             close(sorted_fd);
             remove("file_buffer.csv");
 
-            //printf("DONE SENDING SORTED FILE...DISCONNECTING FROM CLIENT\n");
+            printf("File has been dumped\n");
 
             // Disconnects for specific client by exiting thread
             //close(client_sock);
@@ -242,11 +242,12 @@ void *handle_connection(void *arg){
 	    big_lc = process_csv(&big_db, big_lc);
 	    // Remove file that was created, after data is stored in memory
 	    remove("file_buffer.csv");
-	    //printf("Processing is done now\n");
+	    printf("File has been sorted and saved\n");
 
 	    // Send client response 
 	    char *response = "Recieved file";             
             len = write(client_sock, response, strlen(response) + 1); 
+        
         }
 	else {
 	  printf("Sort or Send request not received\n");

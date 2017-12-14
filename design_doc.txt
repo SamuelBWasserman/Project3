@@ -24,10 +24,10 @@ Server receives DUMP and sends back the file size and the resulting file
 
 Difficulties
 ------------
-We spent many hours debugging due to the server receiving the incorrect file size, read errors, etc.
+We spent many hours debugging due to the server receiving the incorrect file size, read errors, and sending our data structure by value to functions for processing.
 
 Running our code
 ----------------
 We ran our code with
-./sorter_server -p 8080
-./sorter_client -c gross -h man.cs.rutgers.edu -p 8080
+./sorter_server -p 9008
+./sorter_client -c gross -h man.cs.rutgers.edu -p 9008

@@ -51,13 +51,13 @@ int main(int argc, char** argv) {
 
     switchValue = switchVariable(columnType);
 
-    fprintf(stderr, "Column Type  : [%s]\n", columnType);
+    /*fprintf(stderr, "Column Type  : [%s]\n", columnType);
     fprintf(stderr, "Column Number: [%d]\n", switchValue);
     fprintf(stderr, "Host Name    : [%s]\n", hostName);
     fprintf(stderr, "Port Number  : [%s]\n", portNumber);
     fprintf(stderr, "Directory    : [%s]\n", directoryName);
     fprintf(stderr, "Output       : [%s]\n\n", outputDirectory);
-
+*/
     /* Create a socket first */
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     	outputErrorMessage("could not create socket");
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
     
     // Print copnnected socket
     struct sockaddr_in *result_addr = (struct sockaddr_in *)result->ai_addr;
-    printf("Connected to PORT %d on socket %d\n", ntohs(result_addr->sin_port), sockfd);
+    //printf("Connected to PORT %d on socket %d\n", ntohs(result_addr->sin_port), sockfd);
 
     // Create thread to search dir
     threadSize = threadSize + 1;
@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
     	pthread_join(tids[x], NULL);
     }
 
-    printf("Number of Directories Searched: [%d]\n\n", threadCount);
+    //printf("Number of Directories Searched: [%d]\n\n", threadCount);
     // printf("Done sending sort requests.\n");
  
     // Variables to send the request and recieve it
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
     strcat(request, "-");
     sprintf(dataNum, "%d", determine_data_type(switchValue));
     strcat(request, dataNum);
-    printf("-sending dump request-\n");
+    //printf("-sending dump request-\n");
     // printf("PRE REQUEST BUFFER: [%s]\n", request);
     len = send(sockfd, request, 10, 0);
     // printf("LENGTH OF DUMP REQUEST %d\n",len);
@@ -122,13 +122,13 @@ int main(int argc, char** argv) {
     int file_size;
     read(sockfd, fileSize, 256);
     file_size = atoi(fileSize);
-    printf("File Size: [%d]\n", file_size);
+    //printf("File Size: [%d]\n", file_size);
     int remaining_data = 0;
 
 	// Make CSV file to retrieve
 	int sorted_fd = open(attachSorted(), O_RDWR | O_APPEND | O_CREAT, 0644);
     remaining_data = file_size;
-	printf("-getting file from server-\n");
+	//printf("-getting file from server-\n");
 	// printf("REMAINING DATA: %d\n", remaining_data);
     while ((remaining_data > 0) && ((len = read(sockfd, buffer, BUFSIZ)) > 0)){
         // printf("Got %d bytes", len);	
@@ -138,12 +138,12 @@ int main(int argc, char** argv) {
     }
     
     //printf("Got %d bytes\n", len);
-    printf("Remaining Data: [%d]\n", remaining_data);
-    printf("Status: [%s]\n", strerror(errno));
+    //printf("Remaining Data: [%d]\n", remaining_data);
+    //printf("Status: [%s]\n", strerror(errno));
 
 	close(sorted_fd);
  
-	printf("-closing socket-\n");
+	//printf("-closing socket-\n");
 
     close(sockfd);
     return 0;
