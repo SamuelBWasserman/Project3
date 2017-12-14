@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     
     // Print copnnected socket
     struct sockaddr_in *result_addr = (struct sockaddr_in *)result->ai_addr;
-    printf("Connected to IP %d on socket %d\n", ntohs(result_addr->sin_port), sockfd);
+    printf("Connected to PORT %d on socket %d\n", ntohs(result_addr->sin_port), sockfd);
 
     // Create thread to search dir
     // threadSize = threadSize + 1;
@@ -123,10 +123,8 @@ int main(int argc, char** argv) {
     strcat(request, dataNum);
     printf("SENDING DUMP REQUEST\n");
     printf("PRE REQUEST BUFFER: [%s]\n", request);
-    while((len = send(sockfd, request, strlen(request), 0)) < 0){
-      printf("Sent request with no length...retrying.\n");
-      continue;
-    }
+    len = send(sockfd, request, 10, 0);
+    printf("LENGTH OF DUMP REQUEST %d\n",len);
     //printf("DONE SENDING DUMP REQUEST WITH LENGTH %d\n", len);
     //printf("HERE IS THE FUCKING BUFFER YOU SLUT: [%s]\n", request);
     // Get the sorted file from the server
@@ -148,7 +146,7 @@ int main(int argc, char** argv) {
         remaining_data -= len;
     }
     
-    printf("Got %d bytes\n", len);
+    //printf("Got %d bytes\n", len);
     printf("Error: %s\n", strerror(errno));
 
 	close(sorted_fd);
@@ -163,7 +161,7 @@ void* traverseDirectory(void* arg) {
   // Get dir args
 	char* directoryName = (char*)malloc(strlen((char*) arg) + 1);
 	strcpy(directoryName, (char*) arg);
-	printf("Directory Name: [%s]\n", directoryName);
+	//printf("Directory Name: [%s]\n", directoryName);
 	DIR *dirStream;
 	struct dirent *dir;
 	dirStream = opendir(directoryName);
@@ -195,14 +193,14 @@ void* traverseDirectory(void* arg) {
 		else if (strstr(dir->d_name, ".csv") && dir->d_type == 8) {
 			if (checkRepeat(dir->d_name) == 1) {
 				if (checkCSV(newPath) == 1) {
-					printf("CSV Found: [%s]\n", newPath);
+					//printf("CSV Found: [%s]\n", newPath);
 					// Get a lock and call the sendRequest function
 					pthread_mutex_lock(&socketLock);
 					sendRequest(newPath);
 					pthread_mutex_unlock(&socketLock);
 				}
 				else {
-				  printf("invalid csv file %s\n", newPath);
+				  // printf("invalid csv file %s\n", newPath);
 				}
 			}
 		}
@@ -223,7 +221,9 @@ void sendRequest(char *fileName) {
   int sent_bytes = 0;
   off_t offset;
   int remain_data;
-  char *request = "SORT";
+  char request[10];
+  memset(request, 0, sizeof(request));
+  strcat(request,"SORT-00-0");
   char response[14];
   struct stat file_stat;
 
@@ -238,19 +238,20 @@ void sendRequest(char *fileName) {
   sprintf(file_size, "%d", file_stat.st_size);
 
   // Sending SORT request
-  len = send(sockfd, request, strlen(request) + 1, 0);
+  printf("REQUES TO SEND TO SERVER: %s\n", request);
+  len = send(sockfd, request, 10, 0);
 
   // Sending file size
   len = send(sockfd, file_size, 256, 0);
-  printf("SENDING FILE: %s\n", fileName);
+  //printf("SENDING FILE: %s\n", fileName);
   offset = 0;
   remain_data = file_stat.st_size;
   while ((remain_data > 0) && ((sent_bytes = sendfile(sockfd, csv, &offset, BUFSIZ)) > 0)){
-    printf("Sent %d bytes\n", sent_bytes);
+    //printf("Sent %d bytes\n", sent_bytes);
     remain_data -= sent_bytes;
   }
 
-  printf("DONE WITH FILE: %s\n", fileName);
+  //printf("DONE WITH FILE: %s\n", fileName);
 
   // Read the response from the server
   len = read(sockfd, response, sizeof(response));

@@ -121,18 +121,19 @@ void *handle_connection(void *arg){
     // Create global variables to store CSV data
     data_row **big_db;
     big_db = (data_row**)malloc(sizeof(data_row));
-    printf("BIG DB HAS BEEN INITIALIZED TO SIZE: %d\n", sizeof(big_db));
+    //printf("BIG DB HAS BEEN INITIALIZED TO SIZE: %d\n", sizeof(big_db));
     int big_lc = 0;
     // Get data from the client
     char buffer[BUFSIZ];
-    char req[5];
+    char req[10];
     int len;
     // TODO Optimization: Let's spawn a thread to handle this while loop.
-    while((len = read(client_sock, req, sizeof(req))) > 0){
-      printf("RECIEVED REQUEST\n");
-        buffer[len] = '\0';
+    while((len = read(client_sock, req, 10)) > 0){
+      printf("RECIEVED REQUEST with len: %d\n", len);
+        req[len] = '\0';
 
         // Get the request string
+        printf("REQUEST FULL: %s\n", req);
         char request[5];
         strncpy(request, req, 4);
         request[4] = '\0';
@@ -142,19 +143,24 @@ void *handle_connection(void *arg){
             printf("Sorting then dumping...\n");
             // Get the remaining 2 args
             char column[3];
-            strtok(buffer, "-");
-            strtok(buffer, "-");
-            strcpy(column, buffer);
+            printf("buffer: %s\n",req);
+            char *request_nums;
+            request_nums = strtok(req, "-");
+            request_nums = strtok(NULL, "-");
+            printf("Client request with 2: %s\n",request_nums);
+            strcpy(column, request_nums);
             int column_to_sort = atoi(column);
-            strtok(buffer, "-");
+            request_nums = strtok(NULL, "-");
             char data[3];
-            strcpy(data, buffer);
+            printf("Client request with 1: %s\n", request_nums);
+            strcpy(data, request_nums);
             int data_flag = atoi(data);
             char buf[PATH_MAX];
             // Sort the big DB
-	        printf("Line Counter: %d\n", big_lc);
+	        printf("Column to sort: %d\n", column_to_sort);
+	        printf("Data flag: %d\n", data_flag);
 	        printf("SORTING\n");
-            //sort(&big_db, column_to_sort, data_flag,0,big_lc-1);
+            sort(&big_db, column_to_sort,data_flag, 0,big_lc-1);
 	        printf("DONE SORTING\n");
             char *file_name = "file_buffer.csv";
             
@@ -163,7 +169,7 @@ void *handle_connection(void *arg){
             int remain_data;
             ssize_t len;
             // Creates a file from big_db
-            printf("Printing %d lines to CSV \n", big_lc);
+            //printf("Printing %d lines to CSV \n", big_lc);
             print_to_csv(big_db, big_lc, file_name, first_line);
             int sorted_fd = open("file_buffer.csv", O_RDONLY);
             
@@ -181,37 +187,36 @@ void *handle_connection(void *arg){
             /* Sending file data */
             while ((remain_data > 0) && ((sent_bytes = sendfile(client_sock, sorted_fd, &offset, BUFSIZ)) > 0))
             {
-                printf("Sent %d bytes", sent_bytes);
+                //printf("Sent %d bytes", sent_bytes);
                 remain_data -= sent_bytes;
             }
 
             close(sorted_fd);
             remove("file_buffer.csv");
 
-            printf("DONE SENDING SORTED FILE...DISCONNECTING FROM CLIENT\n");
+            //printf("DONE SENDING SORTED FILE...DISCONNECTING FROM CLIENT\n");
 
             // Disconnects for specific client by exiting thread
             //close(client_sock);
             pthread_exit(0);
         }
 	else if(strcmp(request, "SORT") == 0) { // This is Sort and a file descriptor is provided
-            printf("Adding to Mega DB...\n");
 
             // Receive the file size
+        memset(req,0,sizeof(req));
 	    int fsize_len = 0;
 	    fsize_len = read(client_sock, buffer, 256);
-            int file_size = atoi(buffer);
+        int file_size = atoi(buffer);
 	    int remaining_data = 0;	    
 	    int len = 0;
 	    remaining_data = file_size;
 
 	    // Output the file size
-            printf("File Size: %d\n", file_size);
             
 	    // Clear buffer and print some shit
 	    memset(buffer,0,BUFSIZ);
-	    printf("GETTING FILE FROM CLIENT\n");
-	    printf("Remaining Data: %d\n", remaining_data);
+	    //printf("GETTING FILE FROM CLIENT\n");
+	    //printf("Remaining Data: %d\n", remaining_data);
 	    
 	    // Create file descriptor to recieve file
 	    int fd = open("file_buffer.csv", O_RDWR | O_APPEND | O_CREAT, 0644);
@@ -228,7 +233,7 @@ void *handle_connection(void *arg){
             write(fd, "\n", 1);
 
 	    // Close the CSV
-	    printf("Closing CSV\n");
+	    //printf("Closing CSV\n");
 	    close(fd);
 
 	    // Clear the memory for the next buffer and call process CSV 
@@ -236,7 +241,7 @@ void *handle_connection(void *arg){
 	    big_lc = process_csv(&big_db, big_lc);
 	    // Remove file that was created, after data is stored in memory
 	    remove("file_buffer.csv");
-	    printf("Processing is done now\n");
+	    //printf("Processing is done now\n");
 
 	    // Send client response 
 	    char *response = "Recieved file";             
@@ -253,7 +258,7 @@ void *handle_connection(void *arg){
 /* in the heap for later sorting */
 int process_csv(data_row ***big_db, int big_lc){
   /* Processes the CSV file */
-  printf("Processing CSV\n");
+  //printf("Processing CSV\n");
 
   // Open the CSV for reading
   FILE *csv_file = fopen("file_buffer.csv", "r"); 
@@ -273,7 +278,7 @@ int process_csv(data_row ***big_db, int big_lc){
   int word_counter = 0; // keep track of what word were on for assignment in the struct
   int type_flag = 0; // 0:STRING, 1:INT, 2:FLOAT
 
-  printf("Getting line now\n");  
+  //printf("Getting line now\n");  
   while(fgets(line, 600, csv_file) != NULL){
     int i;
     if(line_counter < 0){

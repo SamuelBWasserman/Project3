@@ -42,7 +42,7 @@ int process_csv(data_row ***, int);
 char * strtok_blanks (char * str, char const * delims);
 int is_csv_correct(char *first_line);
 void print_to_csv(data_row**,int, char *, char *);
-void merge(data_row ***db, int column, int data_type, int left, int middle,
+void merge(data_row ****db, int column, int data_type, int left, int middle,
            int right);
 void process_dir(FILE *);
 void *handle_connection(void *arg);

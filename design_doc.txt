@@ -1,0 +1,33 @@
+Contributors
+------------
+Sam Wasserman, Ram Patel, Akshay Mehta, Rohit Thakre
+
+Design
+------
+CLIENT
+The client traverses for CSV files and sends each one to the server as a SORT request using sendfile(). When it finishes sending all of the CSV files, it sends a DUMP request, renames the file to All-Files-Sorted-(column).csv
+
+SERVER
+The server waits for connections on an infinite loop. When it detects a connection, it spawns a thread to handle the connection. On a SORT request, it reads in the file and stores it in the heap. On a DUMP request, it sorts the data, then sends the file back to the client, and the thread exits.
+
+Assumptions & Protocol
+-----------
+We assume CSV files contain 28 columns with headers in the correct order. We use a specific protocol between our client and server.
+
+Client sends a request to SORT and uses sendfile() to send the file to sort and the file size
+Client sends a request to DUMP and reads the file that gets sent back
+
+Server receives SORT then file size then the file to store
+Server receives DUMP and sends back the file size and the resulting file
+
+
+
+Difficulties
+------------
+We spent many hours debugging due to the server receiving the incorrect file size, read errors, etc.
+
+Running our code
+----------------
+We ran our code with
+./sorter_server -p 8080
+./sorter_client -c gross -h man.cs.rutgers.edu -p 8080
