@@ -160,6 +160,7 @@ void *handle_connection(void *arg){
 	        printf("Column to sort: %d\n", column_to_sort);
 	        printf("Data flag: %d\n", data_flag);
 	        printf("SORTING\n");
+          printf("BIG_LC: [%d]\n", big_lc);
             sort(&big_db, column_to_sort,data_flag, 0,big_lc-1);
 	        printf("DONE SORTING\n");
             char *file_name = "file_buffer.csv";
@@ -230,7 +231,7 @@ void *handle_connection(void *arg){
             }
             
             // Write newline character to file
-            write(fd, "\n", 1);
+            // write(fd, "\n", 1);
 
 	    // Close the CSV
 	    //printf("Closing CSV\n");
@@ -381,6 +382,7 @@ void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *f
   f = fopen(file_path_name, "w");
   int i, j;
   for (i = -1; i < line_counter; i++) {
+    printf("this is i:  [%d]\n", i);
     //Print first line to csv
     if(i == -1){
         fprintf(f,first_line);
