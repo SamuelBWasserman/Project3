@@ -117,10 +117,10 @@ int main(int argc, char** argv) {
     
     strcat(request, "DUMP-");
     sprintf(colNum, "%d", switchValue);
-    strcat(buffer, colNum);
-    strcat(buffer, "-");
+    strcat(request, colNum);
+    strcat(request, "-");
     sprintf(dataNum, "%d", determine_data_type(switchValue));
-    strcat(buffer, dataNum);
+    strcat(request, dataNum);
     printf("SENDING DUMP REQUEST\n");
     //printf("PRE REQUEST BUFFER: [%s]\n", request);
     while((len = send(sockfd, request, strlen(request), 0)) <= 0){

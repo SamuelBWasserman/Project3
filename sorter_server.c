@@ -120,8 +120,8 @@ void *handle_connection(void *arg){
     int client_sock = c_args -> client_sock;
     // Create global variables to store CSV data
     data_row **big_db;
-    big_db = (data_row**)malloc(sizeof(data_row)); // 1 data row
-    printf("BIG DB HAS BEEN INITIALIZED TO SIZE: %d\n", sizeof(data_row));
+    big_db = (data_row**)malloc(sizeof(data_row));
+    printf("BIG DB HAS BEEN INITIALIZED TO SIZE: %d\n", sizeof(big_db));
     int big_lc = 0;
     // Get data from the client
     char buffer[BUFSIZ];
@@ -152,10 +152,10 @@ void *handle_connection(void *arg){
             int data_flag = atoi(data);
             char buf[PATH_MAX];
             // Sort the big DB
-	    printf("Line Counter: %d\n", big_lc);
-	    printf("SORTING\n");
+	        printf("Line Counter: %d\n", big_lc);
+	        printf("SORTING\n");
             sort(big_db, column_to_sort, data_flag,0,big_lc-1);
-	    printf("DONE SORTING\n");
+	        printf("DONE SORTING\n");
             char *file_name = "file_buffer.csv";
             
             int sent_bytes = 0;
@@ -163,6 +163,7 @@ void *handle_connection(void *arg){
             int remain_data;
             ssize_t len;
             // Creates a file from big_db
+            printf("Printing to CSV\n");
             print_to_csv(big_db, big_lc, file_name, first_line);
             FILE *csv = fopen("file_buffer.csv", "r");
             
@@ -237,7 +238,8 @@ void *handle_connection(void *arg){
 
 	    // Clear the memory for the next buffer and call process CSV 
 	    memset(buffer,0,sizeof(buffer));
-	    big_lc = process_csv(big_db, big_lc);
+	    //data_row ***ptr = &big_db;
+	    big_lc = process_csv(&big_db, big_lc);
 
 	    // Remove file that was created, after data is stored in memory
 	    remove("file_buffer.csv");
@@ -256,7 +258,7 @@ void *handle_connection(void *arg){
 
 /* This function takes in a csv_file, and appends the rows of data to a data structure */
 /* in the heap for later sorting */
-int process_csv(data_row **big_db, int big_lc){
+int process_csv(data_row ***big_db, int big_lc){
   /* Processes the CSV file */
   printf("Processing CSV\n");
 
@@ -271,7 +273,7 @@ int process_csv(data_row **big_db, int big_lc){
      exit(1);
   }
   char delims[] = ",";
-  big_db[big_lc] = (data_row*)malloc(sizeof(data_row)); // 1 data row
+  big_db[0][big_lc] = (data_row*)malloc(sizeof(data_row)); // 1 data row
   char line[600]; // one line from the file
   memset(line,0,600);
   int line_counter = -1; // count what line we're on to keep track of the struct array
@@ -280,7 +282,6 @@ int process_csv(data_row **big_db, int big_lc){
 
   printf("Getting line now\n");  
   while(fgets(line, 600, csv_file) != NULL){
-    printf("LINE: %s\n", line);
     int i;
     if(line_counter < 0){
       line_counter++;
@@ -350,17 +351,17 @@ int process_csv(data_row **big_db, int big_lc){
 	      strcat(buffer, ",\0");
         strcat(buffer, word);
 	      strcat(buffer, "\0");
-        big_db[big_lc]->col[word_counter] = (char *)malloc((strlen(buffer)+1)*sizeof(char));
-	      strcpy(big_db[big_lc]->col[word_counter], buffer);
+        big_db[0][big_lc]->col[word_counter] = (char *)malloc((strlen(buffer)+1)*sizeof(char));
+	      strcpy(big_db[0][big_lc]->col[word_counter], buffer);
 	      word_counter++;
 	      word = strtok(NULL,",");
 	      continue;
       }
 
       // Allocate enough space for the string to be placed in the array
-      big_db[big_lc]->col[word_counter] = (char *)malloc((strlen(word)+1)*sizeof(char));
+      big_db[0][big_lc]->col[word_counter] = (char *)malloc((strlen(word)+1)*sizeof(char));
       // Copy the string into the array and add trailing string ender
-      strcpy(big_db[big_lc]->col[word_counter], word);
+      strcpy(big_db[0][big_lc]->col[word_counter], word);
       // Move to the next token
       word_counter++;
       word = strtok(NULL, delims);
@@ -368,9 +369,8 @@ int process_csv(data_row **big_db, int big_lc){
     word_counter = 0;
     line_counter++;
     big_lc++;
-    printf("BIG_LC AT %d and BIG_DB AT %d\n", big_lc, sizeof(*big_db));
-    big_db = (data_row**)realloc(big_db, (sizeof(data_row)*(big_lc)));
-    big_db[big_lc] = (data_row*)malloc(sizeof(data_row));
+    big_db[0] = (data_row**)realloc(big_db[0], (sizeof(data_row)*(big_lc+1)));
+    big_db[0][big_lc] = (data_row*)malloc(sizeof(data_row));
     // pthread_mutex_unlock(&MUTEX);
   }
   // Close the file and return the line counter
@@ -381,11 +381,12 @@ int process_csv(data_row **big_db, int big_lc){
 void print_to_csv(data_row **db, int line_counter, char *file_path_name, char *first_line) {
   char buffer[200];
   FILE *f;
-  f = fopen(file_path_name, "ab+");
+  f = fopen(file_path_name, "w");
   int i, j;
   for (i = -1; i < line_counter; i++) {
     //Print first line to csv
     if(i == -1){
+        printf("Printing first line %s\n", first_line);
     	fprintf(f, first_line);
     	continue;
     }
