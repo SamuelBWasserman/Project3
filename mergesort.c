@@ -4,7 +4,7 @@
 #include <string.h>
 
 
-void sort(data_row **db, int col, int data_type, int left, int right) {
+void sort(data_row ***db, int col, int data_type, int left, int right) {
   if (left < right) {
     // Calculate the middle index of the array for splitting
     int middle = left + (right - left) / 2; 
@@ -18,7 +18,7 @@ void sort(data_row **db, int col, int data_type, int left, int right) {
   }
 }
 
-void merge(data_row **db, int column, int data_type, int left, int middle,
+void merge(data_row ***db, int column, int data_type, int left, int middle,
            int right) {
   int i, j, k;
   int size1 = middle - left + 1;
@@ -32,20 +32,20 @@ void merge(data_row **db, int column, int data_type, int left, int middle,
   for (i = 0; i < size1; i++) {
       temp_left[i] = (data_row*)malloc(sizeof(data_row));
       for(j =0; j< 28; j++)
-          temp_left[i]->col[j] = (char *)malloc(sizeof(db[i]->col[j]));
+          temp_left[i]->col[j] = (char *)malloc(sizeof(db[0][i]->col[j]));
   }
   for (i = 0; i < size2; i++) {
       temp_right[i] = (data_row*)malloc(sizeof(data_row));
       for(j =0; j< 28; j++)
-          temp_left[i]->col[j] = (char *)malloc(sizeof(db[i]->col[j]));
+          temp_left[i]->col[j] = (char *)malloc(sizeof(db[0][i]->col[j]));
   }
   
   // Copy data into the temp arrays
   for (i = 0; i < size1; i++) {
-    temp_left[i] = db[left + i];
+    temp_left[i] = db[0][left + i];
   }
   for (j = 0; j < size2; j++) {
-    temp_right[j] = db[middle + 1 + j];
+    temp_right[j] = db[0][middle + 1 + j];
   }
 
   // reset indices
@@ -69,20 +69,20 @@ void merge(data_row **db, int column, int data_type, int left, int middle,
 
       //compare the two values
       if(atoi(val_left) <= atoi(val_right)){
-	    db[k] = temp_left[i];
+	    db[0][k] = temp_left[i];
         i++;
       } else {
-        db[k] = temp_right[j];
+        db[0][k] = temp_right[j];
         j++;
       }
     }
     //Check for single NULL_VALUE
     else if (NullCheck(temp_left[i]->col[column], temp_right[j]->col[column]) > 0) {
       if(NullCheck(temp_left[i]->col[column], temp_right[j]->col[column]) == 1){
-	db[k] = temp_left[i];
+	db[0][k] = temp_left[i];
 	i++;
       } else {
-	db[k] = temp_right[j];
+	db[0][k] = temp_right[j];
 	j++;
       }
     }
@@ -114,10 +114,10 @@ void merge(data_row **db, int column, int data_type, int left, int middle,
                       temp_right[j]->col[column]);
       }
       if (result < 0 || result == 0) {
-        db[k] = temp_left[i];
+        db[0][k] = temp_left[i];
         i++;
       } else {
-        db[k] = temp_right[j];
+        db[0][k] = temp_right[j];
         j++;
       }
     }
@@ -126,10 +126,10 @@ void merge(data_row **db, int column, int data_type, int left, int middle,
       int left_int = atoi(temp_left[i]->col[column]);
       int right_int = atoi(temp_right[j]->col[column]);
       if (left_int <= right_int) {
-        db[k] = temp_left[i];
+        db[0][k] = temp_left[i];
         i++;
       } else {
-        db[k] = temp_right[j];
+        db[0][k] = temp_right[j];
         j++;
       }
     }
@@ -139,10 +139,10 @@ void merge(data_row **db, int column, int data_type, int left, int middle,
       float left_float = atof(temp_left[i]->col[column]);
       float right_float = atof(temp_right[j]->col[column]);
       if (left_float <= right_float) {
-        db[k] = temp_left[i];
+        db[0][k] = temp_left[i];
         i++;
       } else {
-        db[k] = temp_right[j];
+        db[0][k] = temp_right[j];
         j++;
       }
     } else{
@@ -154,14 +154,14 @@ void merge(data_row **db, int column, int data_type, int left, int middle,
 
    // Copy the remaining elements of left
   while (i < size1) {
-    db[k] = temp_left[i];
+    db[0][k] = temp_left[i];
     i++;
     k++;
   }
 
   // Copy the remaining elements of Right
   while (j < size2) {
-    db[k] = temp_right[j];
+    db[0][k] = temp_right[j];
     j++;
     k++;
   }
