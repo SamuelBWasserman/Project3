@@ -89,7 +89,7 @@ int main(int argc, char **(argv)){
         struct sockaddr_in addr;
         socklen_t addr_size = sizeof(struct sockaddr_in);
         int res = getpeername(clientSocket, (struct sockaddr *)&addr, &addr_size);
-        printf("Connection received from %d\n", inet_ntoa(addr.sin_addr));
+        printf("Connection received from %s\n", inet_ntoa(addr.sin_addr));
         
         // Put clientSocket into struct to pass to thread
         client_args *clientArgs = (client_args *)malloc(sizeof(client_args));
